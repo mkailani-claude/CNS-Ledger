@@ -370,6 +370,20 @@ textarea{resize:vertical;min-height:65px}
     </div>
     <div class="mbody">
 
+      <!-- API Key -->
+      <p class="section-title">🔑 Claude API Key</p>
+      <p style="font-size:0.78rem;color:var(--muted);margin-bottom:0.75rem;line-height:1.5">Your key is stored only on this device — never uploaded anywhere. Get a key free at <strong>platform.anthropic.com</strong></p>
+      <div class="pw-section">
+        <div class="pw-row">
+          <input type="password" id="api-key-input" placeholder="sk-ant-api03-..." style="font-family:monospace;font-size:0.75rem">
+          <button class="pw-eye" onclick="togglePwField('api-key-input')">👁</button>
+        </div>
+        <button class="btn bp" style="width:100%;justify-content:center" onclick="saveApiKeyFromInput()">Save API Key</button>
+        <div id="apikey-msg" style="font-size:0.78rem;text-align:center;min-height:1rem;font-family:'IBM Plex Mono',monospace"></div>
+      </div>
+
+      <hr class="divider">
+
       <!-- Change Password -->
       <p class="section-title">🔑 Change Password</p>
       <div class="pw-section">
@@ -536,16 +550,34 @@ async function initApp() {
   entries = await dbGetAll();
   entries.sort((a,b)=>new Date(b.addedAt)-new Date(a.addedAt));
   render(); updateStats();
+  // Prompt for API key if not set
+  if(!hasApiKey()){
+    setTimeout(()=>{
+      toast('Welcome! Tap ⚙ Settings to enter your API key.', false);
+    }, 600);
+  }
 }
 
+// ── API Key Management (stored locally, never in code) ────────────────────────
+const API_KEY_STORE = 'cns_api_key';
+function getApiKey(){ return localStorage.getItem(API_KEY_STORE) || ''; }
+function saveApiKey(k){ localStorage.setItem(API_KEY_STORE, k.trim()); }
+function hasApiKey(){ return !!getApiKey(); }
+
 // ── Upload ────────────────────────────────────────────────────────────────────
-function triggerUpload(){document.getElementById("fileinput").click()}
-function triggerCamera(){document.getElementById("camerainput").click()}
+function triggerUpload(){
+  if(!hasApiKey()){ showSetup(); toast('Enter your API key in Settings first.', true); return; }
+  document.getElementById("fileinput").click();
+}
+function triggerCamera(){
+  if(!hasApiKey()){ showSetup(); toast('Enter your API key in Settings first.', true); return; }
+  document.getElementById("camerainput").click();
+}
 function handleFile(inp){if(inp.files[0])processFile(inp.files[0]);inp.value=''}
 function doDrag(e,on){e.preventDefault();document.getElementById('dropzone').classList.toggle('over',on)}
 function doDrop(e){e.preventDefault();document.getElementById('dropzone').classList.remove('over');if(e.dataTransfer.files[0])processFile(e.dataTransfer.files[0])}
 
-const ANTHROPIC_KEY = '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';
+
 
 function processFile(file){
   const reader=new FileReader();
@@ -659,7 +691,7 @@ async function extractAI(dataUrl, mime){
       method:'POST',
       headers:{
         'Content-Type':'application/json',
-        'x-api-key': ANTHROPIC_KEY,
+        'x-api-key': getApiKey(),
         'anthropic-version': '2023-06-01',
         'anthropic-dangerous-direct-browser-access': 'true'
       },
@@ -750,7 +782,21 @@ function setFields(d){
 }
 function closeModal(id){document.getElementById(id).classList.remove('on')}
 function overlayTap(e,id){if(e.target===document.getElementById(id))closeModal(id)}
-function showSetup(){document.getElementById('setup-overlay').classList.add('on')}
+function saveApiKeyFromInput(){
+  const k = document.getElementById('api-key-input').value.trim();
+  const msg = document.getElementById('apikey-msg');
+  if(!k){ msg.style.color='var(--accent)'; msg.textContent='Please enter your API key.'; return; }
+  if(!k.startsWith('sk-ant-')){ msg.style.color='var(--accent)'; msg.textContent='Invalid key — should start with sk-ant-'; return; }
+  saveApiKey(k);
+  msg.style.color='var(--green)'; msg.textContent='✓ API key saved on this device.';
+  setTimeout(()=>msg.textContent='', 3000);
+}
+function showSetup(){
+  // Pre-fill API key field if already saved (masked)
+  const existing = getApiKey();
+  if(existing) document.getElementById('api-key-input').value = existing;
+  document.getElementById('setup-overlay').classList.add('on');
+}
 
 // ── Save ──────────────────────────────────────────────────────────────────────
 async function saveEntry(){
@@ -889,7 +935,7 @@ async function testGemini(){
       method:'POST',
       headers:{
         'Content-Type':'application/json',
-        'x-api-key': ANTHROPIC_KEY,
+        'x-api-key': getApiKey(),
         'anthropic-version': '2023-06-01',
         'anthropic-dangerous-direct-browser-access': 'true'
       },
