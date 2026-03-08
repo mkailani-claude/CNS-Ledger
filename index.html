@@ -3,81 +3,1002 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>Invoice Ledger</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="CNS Invoices">
+<meta name="theme-color" content="#1a1a2e">
+<title>CNS Invoice Ledger</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
-:root {
-  --ink: #12100e; --paper: #faf7f2; --rule: #d9d2c5; --accent: #b5341c;
-  --st: env(safe-area-inset-top, 20px);
+:root{
+  --bg:#f2f2f7;--card:#fff;--card2:#f9f9fb;
+  --ink:#1c1c1e;--muted:#6e6e73;--rule:#e5e5ea;
+  --accent:#c0392b;--blue:#007aff;--green:#34c759;
+  --orange:#ff9500;--teal:#00aec7;
+  --st:env(safe-area-inset-top,44px);
+  --sb:env(safe-area-inset-bottom,0px);
+  --sl:env(safe-area-inset-left,0px);
+  --sr:env(safe-area-inset-right,0px);
 }
-body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto; background: var(--paper); margin: 0; padding-top: var(--st); }
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow-x:hidden;font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--ink)}
 
-/* Improved Modal for iPhone */
-.overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:999; }
-.overlay.on { display:flex; align-items:flex-end; }
-.modal { 
-  background: white; width: 100%; border-radius: 20px 20px 0 0; 
-  padding-bottom: env(safe-area-inset-bottom); max-height: 90vh; overflow-y: auto; 
+/* ── LOGIN ── */
+#login-screen{
+  position:fixed;inset:0;z-index:9999;
+  background:linear-gradient(160deg,#0f0f1a 0%,#1a1a2e 60%,#16213e 100%);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:2rem;padding-top:calc(var(--st)+2rem);
 }
-.mhdr { 
-  padding: 20px; display: flex; justify-content: space-between; 
-  border-bottom: 1px solid #eee; position: sticky; top: 0; background: white;
+.login-logo{margin-bottom:1.5rem}
+.login-title{font-size:1.6rem;font-weight:700;color:#fff;margin-bottom:0.3rem;text-align:center;letter-spacing:-0.02em}
+.login-sub{font-size:0.75rem;color:#888;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:2.5rem;text-align:center}
+.login-card{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:20px;padding:1.5rem;width:100%;max-width:340px}
+.login-label{font-size:0.72rem;color:#aaa;letter-spacing:0.06em;text-transform:uppercase;margin-bottom:0.5rem;display:block}
+.login-inp-wrap{position:relative;margin-bottom:1rem}
+.login-inp-wrap input{
+  width:100%;padding:0.9rem 3rem 0.9rem 1rem;
+  background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);
+  border-radius:12px;color:#fff;font-size:1rem;font-family:inherit;
+  -webkit-appearance:none;transition:border-color 0.2s;
 }
-.mclose { font-size: 1.5rem; border: none; background: none; padding: 0 10px; }
+.login-inp-wrap input:focus{outline:none;border-color:rgba(255,255,255,0.4)}
+.login-inp-wrap input.err{border-color:#ff453a;animation:shake 0.35s ease}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+.eye{position:absolute;right:0.9rem;top:50%;transform:translateY(-50%);background:none;border:none;color:#888;cursor:pointer;font-size:1rem;padding:0.2rem}
+.login-btn{width:100%;padding:0.9rem;background:var(--accent);color:#fff;border:none;border-radius:12px;font-size:1rem;font-weight:600;font-family:inherit;cursor:pointer;transition:opacity 0.15s}
+.login-btn:active{opacity:0.8}
+.login-err{color:#ff6b6b;font-size:0.78rem;text-align:center;margin-top:0.75rem;min-height:1.1rem}
 
-/* Filter Bar */
-.filter-container { padding: 10px 1rem; display: flex; gap: 8px; position: sticky; top: 0; background: var(--paper); z-index: 10; }
-.filter-input { flex: 2; padding: 12px; border: 1px solid var(--rule); border-radius: 10px; font-size: 16px; }
+/* ── APP ── */
+#app{display:none;min-height:100vh}
+
+/* ── HEADER ── */
+.topbar{
+  background:var(--card);
+  padding:calc(var(--st) + 8px) 1rem 10px;
+  border-bottom:1px solid var(--rule);
+  position:sticky;top:0;z-index:100;
+  display:flex;align-items:center;justify-content:space-between;
+  gap:0.5rem;
+}
+.topbar-logo{display:flex;align-items:center;gap:0.5rem;flex-shrink:0}
+.topbar-title{font-size:1.05rem;font-weight:700;letter-spacing:-0.02em;color:var(--ink)}
+.topbar-sub{font-size:0.62rem;color:var(--muted);letter-spacing:0.04em}
+.topbar-btns{display:flex;gap:0.4rem;align-items:center}
+.ibtn{
+  display:inline-flex;align-items:center;justify-content:center;gap:0.3rem;
+  padding:0.45rem 0.85rem;border:none;cursor:pointer;
+  font-family:inherit;font-size:0.8rem;font-weight:500;
+  border-radius:10px;transition:opacity 0.15s;white-space:nowrap;
+}
+.ibtn:active{opacity:0.7}
+.ibtn-primary{background:var(--accent);color:#fff}
+.ibtn-blue{background:var(--blue);color:#fff}
+.ibtn-ghost{background:var(--bg);color:var(--ink);border:1px solid var(--rule)}
+.ibtn-sm{padding:0.38rem 0.7rem;font-size:0.73rem;border-radius:8px}
+.ibtn-icon{width:34px;height:34px;padding:0;border-radius:10px;font-size:1rem}
+
+/* ── PAGE ── */
+.page{padding:1rem;padding-bottom:calc(var(--sb)+5rem);max-width:900px;margin:0 auto}
+
+/* ── SCAN AREA ── */
+.scan-row{display:grid;grid-template-columns:1fr 1fr;gap:0.6rem;margin-bottom:1rem}
+.scan-card{
+  background:var(--card);border-radius:16px;padding:1.1rem 0.75rem;
+  text-align:center;cursor:pointer;border:2px solid transparent;
+  transition:all 0.15s;box-shadow:0 1px 4px rgba(0,0,0,0.06);
+}
+.scan-card:active{transform:scale(0.97);opacity:0.85}
+.scan-card.cam{border-color:var(--accent)}
+.scan-card.fil{border-color:var(--blue)}
+.scan-icon{font-size:1.8rem;margin-bottom:0.4rem}
+.scan-label{font-size:0.82rem;font-weight:600;margin-bottom:0.15rem}
+.scan-hint{font-size:0.68rem;color:var(--muted);line-height:1.3}
+
+/* ── PROC ── */
+.procbar{display:none;background:var(--ink);color:#fff;border-radius:12px;padding:0.8rem 1rem;margin-bottom:1rem;align-items:center;gap:0.75rem;font-size:0.82rem}
+.procbar.on{display:flex}
+.spin{width:16px;height:16px;border:2px solid #444;border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── STATS ── */
+.stats{display:grid;grid-template-columns:repeat(2,1fr);gap:0.6rem;margin-bottom:1rem}
+.stat-card{background:var(--card);border-radius:14px;padding:0.9rem 1rem;box-shadow:0 1px 4px rgba(0,0,0,0.05)}
+.stat-label{font-size:0.65rem;text-transform:uppercase;letter-spacing:0.07em;color:var(--muted);margin-bottom:0.25rem}
+.stat-val{font-size:1.35rem;font-weight:700;letter-spacing:-0.02em}
+.stat-val.green{color:var(--green)}
+.stat-val.red{color:var(--accent);font-size:0.9rem;margin-top:0.15rem}
+
+/* ── FILTERS ── */
+.filters{background:var(--card);border-radius:14px;padding:0.9rem 1rem;margin-bottom:1rem;box-shadow:0 1px 4px rgba(0,0,0,0.05)}
+.filter-title{font-size:0.72rem;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--muted);margin-bottom:0.6rem}
+.filter-row{display:grid;grid-template-columns:1fr 1fr;gap:0.5rem}
+.filter-select{
+  width:100%;padding:0.55rem 0.75rem;border:1px solid var(--rule);border-radius:10px;
+  background:#fff;color:var(--ink);font-family:inherit;font-size:0.82rem;
+  -webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236e6e73' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 0.75rem center;padding-right:2rem;
+}
+.filter-select:focus{outline:none;border-color:var(--blue)}
+.filter-clear{display:none;margin-top:0.5rem}
+.filter-clear.show{display:block}
+
+/* ── LEDGER HEADER ── */
+.ledger-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:0.6rem}
+.ledger-title{font-size:1rem;font-weight:700;letter-spacing:-0.01em}
+.export-btns{display:flex;gap:0.3rem}
+
+/* ── CARD LIST (mobile-first, no table) ── */
+.invoice-list{display:flex;flex-direction:column;gap:0.6rem}
+.inv-card{
+  background:var(--card);border-radius:14px;overflow:hidden;
+  box-shadow:0 1px 4px rgba(0,0,0,0.06);animation:fadeIn 0.25s ease both;
+}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.inv-card-top{display:flex;align-items:flex-start;padding:0.9rem 1rem 0.7rem;gap:0.75rem}
+.inv-doc-thumb{width:40px;height:50px;object-fit:cover;border-radius:6px;border:1px solid var(--rule);cursor:pointer;flex-shrink:0}
+.inv-doc-pdf{width:40px;height:50px;background:#eef3fb;border:1px solid #c5d4ee;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:1.3rem;cursor:pointer;flex-shrink:0}
+.inv-doc-none{width:40px;height:50px;background:var(--bg);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0;color:var(--muted)}
+.inv-main{flex:1;min-width:0}
+.inv-patient{font-size:0.95rem;font-weight:600;letter-spacing:-0.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.inv-doctor{font-size:0.77rem;color:var(--muted);margin-top:0.1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.inv-desc{font-size:0.75rem;color:var(--muted);margin-top:0.2rem;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.inv-amount{font-size:1.1rem;font-weight:700;color:var(--green);letter-spacing:-0.02em;flex-shrink:0}
+.inv-card-bottom{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0.5rem 1rem 0.65rem;border-top:1px solid var(--rule);
+  background:var(--card2);
+}
+.inv-meta{display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap}
+.inv-chip{font-size:0.67rem;color:var(--muted);background:var(--bg);border-radius:6px;padding:0.2rem 0.5rem;font-family:monospace}
+.inv-chip.blue{background:#e8f2ff;color:var(--blue)}
+.inv-actions{display:flex;gap:0.3rem}
+.act-btn{width:30px;height:30px;border-radius:8px;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:0.9rem;background:var(--bg);transition:opacity 0.15s}
+.act-btn:active{opacity:0.6}
+.act-btn.del{color:var(--accent)}
+
+.empty-state{background:var(--card);border-radius:14px;padding:3rem 1.5rem;text-align:center}
+.empty-icon{font-size:3rem;margin-bottom:0.75rem}
+.empty-title{font-size:1.1rem;font-weight:600;margin-bottom:0.4rem}
+.empty-hint{font-size:0.82rem;color:var(--muted);line-height:1.5}
+
+/* ── BOTTOM TAB BAR ── */
+.tabbar{
+  position:fixed;bottom:0;left:0;right:0;
+  background:rgba(255,255,255,0.92);
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  border-top:1px solid var(--rule);
+  padding:0.5rem 1rem calc(var(--sb)+0.5rem);
+  display:flex;justify-content:space-around;align-items:center;
+  z-index:50;
+}
+.tab{display:flex;flex-direction:column;align-items:center;gap:0.2rem;cursor:pointer;padding:0.2rem 1rem;background:none;border:none;font-family:inherit;opacity:0.5;transition:opacity 0.15s}
+.tab.active{opacity:1;color:var(--accent)}
+.tab-icon{font-size:1.3rem;line-height:1}
+.tab-label{font-size:0.62rem;font-weight:500;letter-spacing:0.02em}
+
+/* ── OVERLAY / SHEET ── */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:500;align-items:flex-end;justify-content:center}
+.overlay.on{display:flex}
+.sheet{
+  background:var(--card);border-radius:22px 22px 0 0;
+  width:100%;max-width:680px;
+  max-height:92vh;overflow-y:auto;
+  box-shadow:0 -4px 40px rgba(0,0,0,0.2);
+  animation:sheetUp 0.3s cubic-bezier(0.32,0.72,0,1);
+  padding-bottom:calc(var(--sb)+0.5rem);
+}
+@keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+
+/* SHEET HANDLE + HEADER */
+.sheet-handle{width:36px;height:4px;background:var(--rule);border-radius:2px;margin:10px auto 0;flex-shrink:0}
+.sheet-hdr{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:1rem 1.25rem 0.75rem;
+  /* NO sticky — avoids safe area issues */
+}
+.sheet-title{font-size:1.1rem;font-weight:700;letter-spacing:-0.02em}
+.sheet-close{
+  width:30px;height:30px;border-radius:50%;background:var(--bg);
+  border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  font-size:0.85rem;color:var(--muted);font-weight:600;
+  flex-shrink:0;
+}
+.sheet-close:active{opacity:0.6}
+.sheet-body{padding:0 1.25rem 1rem}
+.sheet-footer{padding:0.75rem 1.25rem;border-top:1px solid var(--rule);display:flex;gap:0.6rem;justify-content:flex-end}
+
+/* ── FORM ── */
+.field{display:flex;flex-direction:column;gap:0.3rem;margin-bottom:0.85rem}
+.field-label{font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(--muted)}
+.field input,.field textarea,.field select{
+  width:100%;padding:0.72rem 0.9rem;border:1.5px solid var(--rule);border-radius:12px;
+  background:#fff;color:var(--ink);font-family:inherit;font-size:0.92rem;
+  -webkit-appearance:none;transition:border-color 0.2s;
+}
+.field input:focus,.field textarea:focus{outline:none;border-color:var(--blue)}
+.field textarea{resize:vertical;min-height:70px}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:0.75rem}
+.ai-pill{
+  background:#e8f2ff;border:1px solid #b8d4f8;border-radius:10px;
+  padding:0.65rem 0.85rem;margin-bottom:0.9rem;
+  display:flex;gap:0.5rem;align-items:flex-start;
+}
+.ai-dot{background:var(--blue);color:#fff;font-size:0.58rem;font-weight:700;padding:0.15rem 0.4rem;border-radius:4px;letter-spacing:0.05em;flex-shrink:0;margin-top:1px}
+.ai-msg{font-size:0.78rem;color:#1a4a8c;line-height:1.5}
+.doc-attached{background:#e9f7f0;border:1px solid #a8dcbe;border-radius:10px;padding:0.55rem 0.8rem;font-size:0.8rem;color:#1a5c38;display:flex;align-items:center;gap:0.4rem}
+
+/* ── SETTINGS SECTIONS ── */
+.settings-section{margin-bottom:1.5rem}
+.settings-section-title{font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted);margin-bottom:0.6rem;padding:0 0.1rem}
+.settings-card{background:var(--bg);border-radius:14px;overflow:hidden}
+.settings-row{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0.85rem 1rem;border-bottom:1px solid var(--rule);gap:0.75rem;
+}
+.settings-row:last-child{border-bottom:none}
+.settings-row-label{font-size:0.88rem;font-weight:500}
+.settings-row-hint{font-size:0.72rem;color:var(--muted);margin-top:0.1rem}
+.settings-row-left{flex:1}
+.pw-wrap{position:relative;margin-bottom:0.5rem}
+.pw-wrap input{width:100%;padding:0.7rem 2.8rem 0.7rem 0.9rem;border:1.5px solid var(--rule);border-radius:12px;background:#fff;font-family:inherit;font-size:0.9rem;-webkit-appearance:none}
+.pw-wrap input:focus{outline:none;border-color:var(--blue)}
+.pw-eye{position:absolute;right:0.8rem;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--muted);font-size:1rem;padding:0.15rem}
+.msg-line{font-size:0.75rem;text-align:center;min-height:1rem;margin-top:0.25rem}
+
+/* ── VIEWER ── */
+.vframe{width:100%;height:62vh;border:none;display:block;border-radius:10px}
+.vimg{width:100%;border-radius:10px}
+
+/* ── TOAST ── */
+#toasts{position:fixed;bottom:calc(var(--sb)+5rem);left:50%;transform:translateX(-50%);z-index:9000;display:flex;flex-direction:column;gap:0.4rem;pointer-events:none;width:88%;max-width:340px}
+.toast{background:rgba(28,28,30,0.92);backdrop-filter:blur(12px);color:#fff;padding:0.7rem 1rem;border-radius:12px;font-size:0.82rem;text-align:center;animation:tin 0.25s ease;border-left:3px solid var(--green)}
+.toast.err{border-left-color:var(--accent)}
+@keyframes tin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+/* ── ERR BANNER ── */
+.err-banner{position:fixed;top:calc(var(--st)+60px);left:1rem;right:1rem;z-index:400;background:#fff0ee;border:1px solid #f5c6c2;border-radius:12px;padding:0.85rem 1rem;font-size:0.8rem;color:#7a1a0e;line-height:1.5;box-shadow:0 4px 16px rgba(0,0,0,0.1)}
 </style>
 </head>
 <body>
 
-<div class="filter-container">
-  <input type="text" id="search-mat" class="filter-input" placeholder="Search Matricule..." oninput="applyFilters()">
-  <input type="month" id="filter-month" class="filter-input" onchange="applyFilters()">
+<!-- ══ LOGIN ══════════════════════════════════════════════════════════════════ -->
+<div id="login-screen">
+  <div class="login-logo">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 130 78" height="60">
+      <rect x="0" y="0" width="36" height="36" rx="5" fill="#8eb832"/>
+      <rect x="14" y="14" width="36" height="36" rx="5" fill="#2a7a3b"/>
+      <rect x="14" y="29" width="42" height="42" rx="5" fill="#00aec7"/>
+      <rect x="29" y="0" width="22" height="22" rx="4" fill="#e04a3a"/>
+      <text x="66" y="60" font-family="Arial Black,Arial,sans-serif" font-weight="900" font-size="46" fill="white" letter-spacing="-1">CNS</text>
+    </svg>
+  </div>
+  <div class="login-title">Invoice Ledger</div>
+  <div class="login-sub">Private · Secure · Yours</div>
+  <div class="login-card">
+    <span class="login-label">Password</span>
+    <div class="login-inp-wrap">
+      <input type="password" id="pw-input" placeholder="Enter password"
+        onkeydown="if(event.key==='Enter')tryLogin()"
+        oninput="document.getElementById('login-err').textContent=''">
+      <button class="eye" onclick="toggleEye()">👁</button>
+    </div>
+    <button class="login-btn" onclick="tryLogin()">Unlock</button>
+    <div class="login-err" id="login-err"></div>
+  </div>
 </div>
 
-<div class="overlay" id="form-overlay">
-  <div class="modal">
-    <div class="mhdr">
-      <span>New Invoice</span>
-      <button class="mclose" onclick="closeModal()">✕</button>
+<!-- ══ APP ════════════════════════════════════════════════════════════════════ -->
+<div id="app">
+
+  <!-- TOP BAR -->
+  <div class="topbar">
+    <div class="topbar-logo">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 48" height="30">
+        <rect x="0" y="0" width="22" height="22" rx="3" fill="#8eb832"/>
+        <rect x="9" y="9" width="22" height="22" rx="3" fill="#2a7a3b"/>
+        <rect x="9" y="18" width="26" height="26" rx="3" fill="#00aec7"/>
+        <rect x="18" y="0" width="14" height="14" rx="2" fill="#e04a3a"/>
+        <text x="42" y="38" font-family="Arial Black,Arial,sans-serif" font-weight="900" font-size="28" fill="#1c1c1e" letter-spacing="-0.5">CNS</text>
+      </svg>
+      <div>
+        <div class="topbar-title">Invoices</div>
+      </div>
     </div>
+    <div class="topbar-btns">
+      <button class="ibtn ibtn-ghost ibtn-sm" onclick="expCSV()">⬇ CSV</button>
+      <button class="ibtn ibtn-ghost ibtn-sm" onclick="expExcel()">⬇ XLS</button>
     </div>
+  </div>
+
+  <div class="page">
+
+    <!-- SCAN BUTTONS -->
+    <div class="scan-row">
+      <div class="scan-card cam" onclick="triggerCamera()">
+        <div class="scan-icon">📷</div>
+        <div class="scan-label">Camera Scan</div>
+        <div class="scan-hint">Auto-enhances photo to clean scan</div>
+      </div>
+      <div class="scan-card fil" onclick="triggerUpload()">
+        <div class="scan-icon">📄</div>
+        <div class="scan-label">Upload File</div>
+        <div class="scan-hint">PDF, JPG or PNG from Files</div>
+      </div>
+    </div>
+    <input type="file" id="fileinput" accept="image/*,application/pdf" style="display:none" onchange="handleFile(this)">
+    <input type="file" id="camerainput" accept="image/*" capture="environment" style="display:none" onchange="handleFile(this)">
+
+    <!-- PROC BAR -->
+    <div class="procbar" id="proc">
+      <div class="spin"></div>
+      <span id="proc-msg">Processing…</span>
+    </div>
+
+    <!-- STATS -->
+    <div class="stats">
+      <div class="stat-card"><div class="stat-label">Total Invoices</div><div class="stat-val" id="sc">0</div></div>
+      <div class="stat-card"><div class="stat-label">Total Amount</div><div class="stat-val green" id="st">€0.00</div></div>
+      <div class="stat-card"><div class="stat-label">Showing</div><div class="stat-val" id="sf">All</div></div>
+      <div class="stat-card"><div class="stat-label">Latest Date</div><div class="stat-val red" id="sl">—</div></div>
+    </div>
+
+    <!-- FILTERS -->
+    <div class="filters">
+      <div class="filter-title">🔍 Filter</div>
+      <div class="filter-row">
+        <select class="filter-select" id="filter-mat" onchange="applyFilters()">
+          <option value="">All Matricules</option>
+        </select>
+        <select class="filter-select" id="filter-month" onchange="applyFilters()">
+          <option value="">All Months</option>
+        </select>
+      </div>
+      <button class="ibtn ibtn-ghost ibtn-sm filter-clear" id="filter-clear-btn" onclick="clearFilters()" style="margin-top:0.5rem;width:100%;justify-content:center">✕ Clear Filters</button>
+    </div>
+
+    <!-- LEDGER -->
+    <div class="ledger-hdr">
+      <span class="ledger-title">Ledger</span>
+      <button class="ibtn ibtn-ghost ibtn-sm" onclick="expPDF()">⬇ PDF</button>
+    </div>
+    <div class="invoice-list" id="inv-list">
+      <div class="empty-state">
+        <div class="empty-icon">📂</div>
+        <div class="empty-title">No invoices yet</div>
+        <div class="empty-hint">Tap Camera Scan or Upload File above to add your first invoice.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB BAR -->
+  <div class="tabbar">
+    <button class="tab active" onclick="scrollToTop()">
+      <span class="tab-icon">📋</span>
+      <span class="tab-label">Ledger</span>
+    </button>
+    <button class="tab" onclick="triggerCamera()">
+      <span class="tab-icon">📷</span>
+      <span class="tab-label">Scan</span>
+    </button>
+    <button class="tab" onclick="openManual()">
+      <span class="tab-icon">＋</span>
+      <span class="tab-label">Manual</span>
+    </button>
+    <button class="tab" onclick="showSetup()">
+      <span class="tab-icon">⚙️</span>
+      <span class="tab-label">Settings</span>
+    </button>
+  </div>
 </div>
+
+<!-- ══ FORM SHEET ══ -->
+<div class="overlay" id="form-overlay" onclick="overlayTap(event,'form-overlay')">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-hdr">
+      <span class="sheet-title" id="form-title">New Invoice</span>
+      <button class="sheet-close" onclick="closeSheet('form-overlay')">✕</button>
+    </div>
+    <div class="sheet-body">
+      <div class="ai-pill" id="ai-banner" style="display:none">
+        <span class="ai-dot">AI</span>
+        <span class="ai-msg">Fields extracted automatically — please review and correct if needed.</span>
+      </div>
+      <div class="field-row">
+        <div class="field"><div class="field-label">Date</div><input type="date" id="f-date"></div>
+        <div class="field"><div class="field-label">Amount (€)</div><input type="number" id="f-amt" placeholder="0.00" step="0.01" min="0" inputmode="decimal"></div>
+      </div>
+      <div class="field"><div class="field-label">Patient Name</div><input type="text" id="f-pat" placeholder="Full name"></div>
+      <div class="field"><div class="field-label">Matricule / ID</div><input type="text" id="f-mat" placeholder="e.g. 2023 09 28 021 40"></div>
+      <div class="field"><div class="field-label">Invoice Number</div><input type="text" id="f-inv" placeholder="e.g. 01/181337-0228600"></div>
+      <div class="field"><div class="field-label">Doctor / Provider</div><input type="text" id="f-doc" placeholder="Doctor or clinic name"></div>
+      <div class="field"><div class="field-label">Description of Service</div><textarea id="f-desc" placeholder="e.g. Examen pré-anesthésique…"></textarea></div>
+      <div class="field" id="docfield" style="display:none">
+        <div class="field-label">Attached Document</div>
+        <div class="doc-attached">✓ Document attached from scan</div>
+      </div>
+    </div>
+    <div class="sheet-footer">
+      <button class="ibtn ibtn-ghost" onclick="closeSheet('form-overlay')">Cancel</button>
+      <button class="ibtn ibtn-primary" onclick="saveEntry()">Save to Ledger</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ VIEWER SHEET ══ -->
+<div class="overlay" id="view-overlay" onclick="overlayTap(event,'view-overlay')">
+  <div class="sheet" style="max-width:820px">
+    <div class="sheet-handle"></div>
+    <div class="sheet-hdr">
+      <span class="sheet-title" id="view-title">Invoice</span>
+      <button class="sheet-close" onclick="closeSheet('view-overlay')">✕</button>
+    </div>
+    <div style="padding:0 1.25rem 1rem" id="view-body"></div>
+    <div class="sheet-footer">
+      <button class="ibtn ibtn-ghost" onclick="closeSheet('view-overlay')">Close</button>
+      <a class="ibtn ibtn-blue" id="view-dl" href="#" download>⬇ Download</a>
+    </div>
+  </div>
+</div>
+
+<!-- ══ SETTINGS SHEET ══ -->
+<div class="overlay" id="setup-overlay" onclick="overlayTap(event,'setup-overlay')">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-hdr">
+      <span class="sheet-title">Settings</span>
+      <button class="sheet-close" onclick="closeSheet('setup-overlay')">✕</button>
+    </div>
+    <div class="sheet-body">
+
+      <!-- API KEY -->
+      <div class="settings-section">
+        <div class="settings-section-title">🤖 AI Extraction</div>
+        <p style="font-size:0.8rem;color:var(--muted);margin-bottom:0.75rem;line-height:1.5">Your API key is stored only on this device — never in the code or on GitHub. Get a free key at <strong>platform.anthropic.com</strong></p>
+        <div class="pw-wrap">
+          <input type="password" id="api-key-input" placeholder="sk-ant-api03-..." style="font-family:monospace;font-size:0.75rem">
+          <button class="pw-eye" onclick="togglePwField('api-key-input')">👁</button>
+        </div>
+        <button class="ibtn ibtn-primary" style="width:100%;justify-content:center;margin-top:0.4rem" onclick="saveApiKeyFromInput()">Save API Key</button>
+        <div class="msg-line" id="apikey-msg"></div>
+      </div>
+
+      <!-- TEST -->
+      <div class="settings-section">
+        <div class="settings-section-title">🔬 Test Connection</div>
+        <button class="ibtn ibtn-ghost" style="width:100%;justify-content:center" onclick="testAPI()">▶ Run API Test</button>
+        <div id="test-result" style="margin-top:0.6rem;font-size:0.72rem;font-family:monospace;background:var(--bg);border-radius:10px;padding:0.75rem;display:none;word-break:break-all;line-height:1.6;white-space:pre-wrap"></div>
+      </div>
+
+      <!-- PASSWORD -->
+      <div class="settings-section">
+        <div class="settings-section-title">🔑 Change Password</div>
+        <div class="pw-wrap"><input type="password" id="pw-current" placeholder="Current password"><button class="pw-eye" onclick="togglePwField('pw-current')">👁</button></div>
+        <div class="pw-wrap"><input type="password" id="pw-new" placeholder="New password"><button class="pw-eye" onclick="togglePwField('pw-new')">👁</button></div>
+        <div class="pw-wrap"><input type="password" id="pw-confirm" placeholder="Confirm new password"><button class="pw-eye" onclick="togglePwField('pw-confirm')">👁</button></div>
+        <button class="ibtn ibtn-primary" style="width:100%;justify-content:center;margin-top:0.4rem" onclick="changePassword()">Update Password</button>
+        <div class="msg-line" id="pw-msg"></div>
+      </div>
+
+      <!-- BACKUP -->
+      <div class="settings-section">
+        <div class="settings-section-title">☁️ Backup & Restore</div>
+        <div style="display:flex;flex-direction:column;gap:0.5rem">
+          <button class="ibtn ibtn-primary" style="width:100%;justify-content:center" onclick="downloadBackup()">⬇ Download Backup (.json)</button>
+          <label class="ibtn ibtn-ghost" style="width:100%;justify-content:center;cursor:pointer">
+            ⬆ Restore from Backup
+            <input type="file" accept=".json" style="display:none" onchange="restoreBackup(this)">
+          </label>
+        </div>
+        <p style="font-size:0.72rem;color:var(--muted);margin-top:0.6rem;line-height:1.5">Save backup to iCloud Drive to restore on any device including all documents.</p>
+      </div>
+
+      <!-- HOME SCREEN -->
+      <div class="settings-section">
+        <div class="settings-section-title">📱 Add to Home Screen</div>
+        <div class="settings-card">
+          <div class="settings-row"><div class="settings-row-left"><div class="settings-row-label">1. Open in Safari</div><div class="settings-row-hint">Must be Safari, not Chrome</div></div></div>
+          <div class="settings-row"><div class="settings-row-left"><div class="settings-row-label">2. Tap Share button</div><div class="settings-row-hint">Box with arrow at bottom</div></div></div>
+          <div class="settings-row"><div class="settings-row-left"><div class="settings-row-label">3. Add to Home Screen</div><div class="settings-row-hint">Scroll down in share sheet</div></div></div>
+          <div class="settings-row"><div class="settings-row-left"><div class="settings-row-label">4. Always open from icon</div><div class="settings-row-hint">Not from Safari — keeps data permanent</div></div></div>
+        </div>
+      </div>
+
+      <!-- LOCK -->
+      <button class="ibtn" style="width:100%;justify-content:center;background:#fff0ee;color:var(--accent);border:1.5px solid #f5c6c2;border-radius:12px;padding:0.75rem" onclick="lockApp()">🔒 Lock App</button>
+    </div>
+  </div>
+</div>
+
+<div id="toasts"></div>
 
 <script>
-// 1. IMPROVED SCAN FILTER: Replaces the inverted-color logic
-function enhanceImage(dataUrl) {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      canvas.width = img.width;
-      canvas.height = img.height;
-      
-      // Clean, high-contrast scan look (mimics iOS Notes)
-      ctx.filter = 'grayscale(1) contrast(1.4) brightness(1.1)';
-      ctx.drawImage(img, 0, 0);
-      resolve(canvas.toDataURL('image/jpeg', 0.85));
+// ── PASSWORD ──────────────────────────────────────────────────────────────────
+const DEFAULT_PW='Invoices2026', PW_KEY='ilpw_v1';
+let failCount=0, lockUntil=0;
+function getStoredPw(){return localStorage.getItem(PW_KEY)||DEFAULT_PW}
+function tryLogin(){
+  const now=Date.now();
+  if(now<lockUntil){const s=Math.ceil((lockUntil-now)/1000);setErr('Locked. Try in '+s+'s.');return}
+  const v=document.getElementById('pw-input').value;
+  if(v===getStoredPw()){
+    failCount=0;
+    document.getElementById('login-screen').style.display='none';
+    document.getElementById('app').style.display='block';
+    document.getElementById('pw-input').value='';
+    initApp();
+  } else {
+    failCount++;
+    const inp=document.getElementById('pw-input');
+    inp.classList.add('err');setTimeout(()=>inp.classList.remove('err'),400);
+    if(failCount>=5){lockUntil=Date.now()+30000;failCount=0;countdownTick();setErr('Too many attempts. Locked 30s.');}
+    else setErr('Wrong password. '+(5-failCount)+' attempt'+(5-failCount===1?'':'s')+' left.');
+  }
+}
+function setErr(m){document.getElementById('login-err').textContent=m}
+function countdownTick(){const i=setInterval(()=>{const r=Math.ceil((lockUntil-Date.now())/1000);if(r<=0){clearInterval(i);setErr('');}else setErr('Locked. Try in '+r+'s.');},1000)}
+function toggleEye(){const i=document.getElementById('pw-input');i.type=i.type==='password'?'text':'password'}
+function togglePwField(id){const i=document.getElementById(id);i.type=i.type==='password'?'text':'password'}
+function changePassword(){
+  const cur=document.getElementById('pw-current').value;
+  const nw=document.getElementById('pw-new').value;
+  const cf=document.getElementById('pw-confirm').value;
+  const msg=document.getElementById('pw-msg');
+  if(cur!==getStoredPw()){msg.style.color=getComputedStyle(document.documentElement).getPropertyValue('--accent');msg.textContent='Current password incorrect.';return}
+  if(nw.length<4){msg.style.color='var(--accent)';msg.textContent='At least 4 characters needed.';return}
+  if(nw!==cf){msg.style.color='var(--accent)';msg.textContent="Passwords don't match.";return}
+  localStorage.setItem(PW_KEY,nw);
+  ['pw-current','pw-new','pw-confirm'].forEach(id=>document.getElementById(id).value='');
+  msg.style.color='var(--green)';msg.textContent='✓ Password updated.';
+  setTimeout(()=>msg.textContent='',3000);
+}
+function lockApp(){
+  closeSheet('setup-overlay');
+  document.getElementById('app').style.display='none';
+  document.getElementById('login-screen').style.display='flex';
+  document.getElementById('pw-input').value='';setErr('');
+}
+
+// ── API KEY ───────────────────────────────────────────────────────────────────
+const AK_KEY='cns_api_key';
+function getApiKey(){return localStorage.getItem(AK_KEY)||''}
+function saveApiKey(k){localStorage.setItem(AK_KEY,k.trim())}
+function hasApiKey(){return !!getApiKey()}
+function saveApiKeyFromInput(){
+  const k=document.getElementById('api-key-input').value.trim();
+  const msg=document.getElementById('apikey-msg');
+  if(!k){msg.style.color='var(--accent)';msg.textContent='Please enter your API key.';return}
+  if(!k.startsWith('sk-ant-')){msg.style.color='var(--accent)';msg.textContent='Key should start with sk-ant-';return}
+  saveApiKey(k);
+  msg.style.color='var(--green)';msg.textContent='✓ API key saved on this device.';
+  setTimeout(()=>msg.textContent='',3000);
+}
+
+// ── IndexedDB ─────────────────────────────────────────────────────────────────
+const DB_NAME='invoiceLedger',DB_VER=1,STORE='entries';
+let db=null;
+function openDB(){return new Promise((res,rej)=>{const req=indexedDB.open(DB_NAME,DB_VER);req.onupgradeneeded=e=>e.target.result.createObjectStore(STORE,{keyPath:'id'});req.onsuccess=e=>{db=e.target.result;res(db)};req.onerror=()=>rej(req.error)})}
+function dbGetAll(){return new Promise((res,rej)=>{const tx=db.transaction(STORE,'readonly');const req=tx.objectStore(STORE).getAll();req.onsuccess=()=>res(req.result||[]);req.onerror=()=>rej(req.error)})}
+function dbPut(e){return new Promise((res,rej)=>{const tx=db.transaction(STORE,'readwrite');const req=tx.objectStore(STORE).put(e);req.onsuccess=()=>res();req.onerror=()=>rej(req.error)})}
+function dbDel(id){return new Promise((res,rej)=>{const tx=db.transaction(STORE,'readwrite');const req=tx.objectStore(STORE).delete(id);req.onsuccess=()=>res();req.onerror=()=>rej(req.error)})}
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let entries=[],editId=null,pendingDoc=null,filteredEntries=[];
+
+async function initApp(){
+  await openDB();
+  entries=await dbGetAll();
+  entries.sort((a,b)=>new Date(b.addedAt)-new Date(a.addedAt));
+  filteredEntries=[...entries];
+  render();updateStats();buildFilterOptions();
+  if(!hasApiKey()) setTimeout(()=>toast('Tap ⚙ Settings to enter your API key',false),600);
+}
+
+// ── Upload ────────────────────────────────────────────────────────────────────
+function triggerUpload(){
+  if(!hasApiKey()){showSetup();toast('Enter your API key in Settings first.',true);return}
+  document.getElementById('fileinput').click();
+}
+function triggerCamera(){
+  if(!hasApiKey()){showSetup();toast('Enter your API key in Settings first.',true);return}
+  document.getElementById('camerainput').click();
+}
+function handleFile(inp){if(inp.files[0])processFile(inp.files[0]);inp.value=''}
+function doDrag(e,on){e.preventDefault()}
+function scrollToTop(){window.scrollTo({top:0,behavior:'smooth'})}
+
+function processFile(file){
+  const reader=new FileReader();
+  reader.onload=async ev=>{
+    const original=ev.target.result;
+    const isPdf=file.type==='application/pdf';
+    let finalUrl=original, finalMime=file.type;
+    if(!isPdf){
+      setProc(true,'Enhancing image…');
+      try{finalUrl=await enhanceImage(original);finalMime='image/jpeg';}
+      catch(e){finalUrl=original;finalMime=file.type;}
+    }
+    pendingDoc={dataUrl:finalUrl,mime:finalMime,name:file.name};
+    await extractAI(finalUrl,finalMime);
+  };
+  reader.readAsDataURL(file);
+}
+
+// ── Image Enhancement — FIXED (no inversion, natural scan look) ──────────────
+function enhanceImage(dataUrl){
+  return new Promise((resolve,reject)=>{
+    const img=new Image();
+    img.onload=()=>{
+      const canvas=document.createElement('canvas');
+      // Scale up for better OCR resolution
+      const maxDim=2400;
+      const scale=Math.min(maxDim/Math.max(img.width,img.height),2.5);
+      canvas.width=img.width*(scale>1?scale:1);
+      canvas.height=img.height*(scale>1?scale:1);
+      const ctx=canvas.getContext('2d');
+
+      // 1. Draw original image
+      ctx.drawImage(img,0,0,canvas.width,canvas.height);
+
+      const imageData=ctx.getImageData(0,0,canvas.width,canvas.height);
+      const d=imageData.data;
+      const len=d.length;
+
+      // 2. Find actual min/max brightness for auto-leveling (don't invert!)
+      let minV=255,maxV=0;
+      for(let i=0;i<len;i+=4){
+        const g=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];
+        if(g<minV)minV=g;if(g>maxV)maxV=g;
+      }
+      const range=maxV-minV||1;
+
+      // 3. Auto-levels + moderate contrast boost (white stays white, black stays black)
+      for(let i=0;i<len;i+=4){
+        // Convert to grayscale
+        let g=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];
+        // Stretch histogram so paper white → 255, ink black → 0
+        g=((g-minV)/range)*255;
+        // Moderate S-curve contrast (no harsh threshold that inverts)
+        // Brighten whites, darken darks
+        if(g>200) g=Math.min(255,g*1.08);       // whites brighter
+        else if(g<80) g=Math.max(0,g*0.7);       // darks darker
+        // else midtones stay natural
+        g=Math.max(0,Math.min(255,g));
+        d[i]=d[i+1]=d[i+2]=g;
+        // d[i+3] alpha unchanged
+      }
+      ctx.putImageData(imageData,0,0);
+
+      // 4. Light sharpening pass
+      const sharp=ctx.getImageData(0,0,canvas.width,canvas.height);
+      const src=new Uint8ClampedArray(sharp.data);
+      const w=canvas.width,h=canvas.height;
+      // Subtle unsharp mask kernel
+      const k=[0,-0.5,0,-0.5,3,-0.5,0,-0.5,0];
+      for(let y=1;y<h-1;y++){
+        for(let x=1;x<w-1;x++){
+          const idx=(y*w+x)*4;
+          let v=0;
+          for(let ky=-1;ky<=1;ky++)for(let kx=-1;kx<=1;kx++)v+=src[((y+ky)*w+(x+kx))*4]*k[(ky+1)*3+(kx+1)];
+          v=Math.max(0,Math.min(255,v));
+          sharp.data[idx]=sharp.data[idx+1]=sharp.data[idx+2]=v;
+        }
+      }
+      ctx.putImageData(sharp,0,0);
+
+      resolve(canvas.toDataURL('image/jpeg',0.92));
     };
-    img.src = dataUrl;
+    img.onerror=reject;
+    img.src=dataUrl;
   });
 }
 
-// 2. LIVE FILTERING LOGIC
-function applyFilters() {
-  const search = document.getElementById('search-mat').value.toLowerCase();
-  const month = document.getElementById('filter-month').value; 
-  
-  const filtered = entries.filter(e => {
-    const matchesMat = e.matricule.toLowerCase().includes(search);
-    const matchesMonth = month ? e.date.startsWith(month) : true;
-    return matchesMat && matchesMonth;
-  });
-  
-  render(filtered);
+// ── AI Extraction (Anthropic Claude Haiku) ────────────────────────────────────
+async function extractAI(dataUrl,mime){
+  setProc(true,'Extracting invoice data…');
+  try{
+    const b64=dataUrl.split(',')[1];
+    const isPdf=mime==='application/pdf';
+    const imageMime=isPdf?'application/pdf':(mime.startsWith('image/')?mime:'image/jpeg');
+    const prompt=`Look at this invoice carefully. Return ONLY a raw JSON object, no markdown, no explanation:
+{"date":"invoice date as YYYY-MM-DD or empty","matricule":"patient matricule or social security number or empty","patientName":"full patient name or empty","invoiceNo":"invoice reference number or empty","doctor":"doctor or clinic name or empty","description":"medical service description or empty","amount":"total amount as number string like 36.00 or empty"}`;
+    const contentBlock=isPdf
+      ?{type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}}
+      :{type:'image',source:{type:'base64',media_type:imageMime,data:b64}};
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'x-api-key':getApiKey(),
+        'anthropic-version':'2023-06-01',
+        'anthropic-dangerous-direct-browser-access':'true'
+      },
+      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:512,
+        messages:[{role:'user',content:[contentBlock,{type:'text',text:prompt}]}]})
+    });
+    const data=await res.json();
+    if(data.error){setProc(false);showBanner('API Error: '+data.error.message);openForm({},true);return}
+    const txt=(data.content||[]).map(c=>c.text||'').join('');
+    const m=txt.match(/\{[\s\S]*\}/);
+    if(!m){setProc(false);showBanner('Could not parse response: '+txt.substring(0,100));openForm({},true);return}
+    const parsed=JSON.parse(m[0]);
+    setProc(false);openForm(parsed,true);
+  }catch(err){setProc(false);showBanner('Error: '+err.message);openForm({},true);}
 }
+
+function showBanner(msg){
+  let b=document.getElementById('err-banner');
+  if(!b){b=document.createElement('div');b.id='err-banner';b.className='err-banner';b.onclick=()=>b.remove();document.body.appendChild(b);}
+  b.innerHTML='⚠️ <strong>Extraction failed</strong> — tap to dismiss<br><span style="font-size:0.7rem;font-family:monospace">'+msg+'</span>';
+  setTimeout(()=>{if(b.parentNode)b.remove();},12000);
+}
+
+// ── API Test ──────────────────────────────────────────────────────────────────
+async function testAPI(){
+  const box=document.getElementById('test-result');
+  box.style.display='block';box.style.color='var(--muted)';box.textContent='Testing Claude API…';
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','x-api-key':getApiKey(),'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:30,messages:[{role:'user',content:'Reply with: {"ok":true}'}]})
+    });
+    const data=await res.json();
+    if(data.error){box.style.color='var(--accent)';box.textContent='❌ Error: '+data.error.type+'\n'+data.error.message;}
+    else{const t=(data.content||[]).map(c=>c.text||'').join('');box.style.color='var(--green)';box.textContent='✅ Claude is connected!\n\nResponse: '+t+'\n\nScanning will work.';}
+  }catch(e){box.style.color='var(--accent)';box.textContent='❌ Network error: '+e.message;}
+}
+
+// ── Filters ───────────────────────────────────────────────────────────────────
+function buildFilterOptions(){
+  const mats=new Set(entries.map(e=>e.matricule).filter(Boolean));
+  const months=new Set(entries.map(e=>e.date?e.date.substring(0,7):null).filter(Boolean));
+  const matSel=document.getElementById('filter-mat');
+  const monthSel=document.getElementById('filter-month');
+  const curMat=matSel.value, curMonth=monthSel.value;
+  matSel.innerHTML='<option value="">All Matricules</option>';
+  months.forEach(m=>{ // sorted months
+    const opt=document.createElement('option');
+    opt.value=m;opt.textContent=formatMonth(m);monthSel.appendChild(opt);
+  });
+  monthSel.innerHTML='<option value="">All Months</option>';
+  [...months].sort().reverse().forEach(m=>{
+    const opt=document.createElement('option');opt.value=m;opt.textContent=formatMonth(m);monthSel.appendChild(opt);
+  });
+  [...mats].sort().forEach(mat=>{
+    const opt=document.createElement('option');opt.value=mat;opt.textContent=mat;matSel.appendChild(opt);
+  });
+  if(curMat)matSel.value=curMat;
+  if(curMonth)monthSel.value=curMonth;
+}
+function formatMonth(ym){
+  try{const d=new Date(ym+'-01');return d.toLocaleString('default',{month:'long',year:'numeric'});}catch{return ym;}
+}
+function applyFilters(){
+  const mat=document.getElementById('filter-mat').value;
+  const month=document.getElementById('filter-month').value;
+  filteredEntries=entries.filter(e=>{
+    const matchMat=!mat||e.matricule===mat;
+    const matchMonth=!month||(e.date&&e.date.startsWith(month));
+    return matchMat&&matchMonth;
+  });
+  const hasFilter=mat||month;
+  document.getElementById('filter-clear-btn').classList.toggle('show',hasFilter);
+  document.getElementById('sf').textContent=hasFilter?filteredEntries.length+' shown':'All';
+  render();
+}
+function clearFilters(){
+  document.getElementById('filter-mat').value='';
+  document.getElementById('filter-month').value='';
+  filteredEntries=[...entries];
+  document.getElementById('filter-clear-btn').classList.remove('show');
+  document.getElementById('sf').textContent='All';
+  render();
+}
+
+// ── Form Sheet ────────────────────────────────────────────────────────────────
+function openForm(data={},ai=false){
+  editId=null;
+  document.getElementById('form-title').textContent=ai?'Review Extracted Data':'New Invoice';
+  document.getElementById('ai-banner').style.display=ai?'flex':'none';
+  document.getElementById('docfield').style.display=pendingDoc?'block':'none';
+  setFields(data);
+  document.getElementById('form-overlay').classList.add('on');
+}
+function openManual(){pendingDoc=null;openForm({},false);}
+function openEdit(id){
+  const e=entries.find(x=>x.id===id);if(!e)return;
+  editId=id;pendingDoc=null;
+  document.getElementById('form-title').textContent='Edit Invoice';
+  document.getElementById('ai-banner').style.display='none';
+  document.getElementById('docfield').style.display=e.docData?'block':'none';
+  setFields(e);
+  document.getElementById('form-overlay').classList.add('on');
+}
+function setFields(d){
+  document.getElementById('f-date').value=d.date||'';
+  document.getElementById('f-mat').value=d.matricule||'';
+  document.getElementById('f-pat').value=d.patientName||'';
+  document.getElementById('f-inv').value=d.invoiceNo||'';
+  document.getElementById('f-doc').value=d.doctor||'';
+  document.getElementById('f-desc').value=d.description||'';
+  document.getElementById('f-amt').value=d.amount||'';
+}
+function closeSheet(id){document.getElementById(id).classList.remove('on')}
+function overlayTap(e,id){if(e.target===document.getElementById(id))closeSheet(id)}
+function showSetup(){
+  const k=getApiKey();if(k)document.getElementById('api-key-input').value=k;
+  document.getElementById('setup-overlay').classList.add('on');
+}
+
+// ── Save ──────────────────────────────────────────────────────────────────────
+async function saveEntry(){
+  const entry={
+    date:document.getElementById('f-date').value,
+    matricule:document.getElementById('f-mat').value.trim(),
+    patientName:document.getElementById('f-pat').value.trim(),
+    invoiceNo:document.getElementById('f-inv').value.trim(),
+    doctor:document.getElementById('f-doc').value.trim(),
+    description:document.getElementById('f-desc').value.trim(),
+    amount:parseFloat(document.getElementById('f-amt').value)||0,
+    docData:null,docMime:null,docName:null,
+    addedAt:new Date().toISOString()
+  };
+  if(!entry.patientName&&!entry.invoiceNo){toast('Enter Patient Name or Invoice Number.',true);return}
+  if(editId){
+    const old=entries.find(x=>x.id===editId);
+    entry.id=editId;entry.addedAt=old.addedAt;
+    entry.docData=old.docData;entry.docMime=old.docMime;entry.docName=old.docName;
+    entries[entries.findIndex(x=>x.id===editId)]=entry;
+  }else{
+    entry.id='e'+Date.now();
+    if(pendingDoc){entry.docData=pendingDoc.dataUrl;entry.docMime=pendingDoc.mime;entry.docName=pendingDoc.name;}
+    entries.unshift(entry);
+  }
+  await dbPut(entry);
+  pendingDoc=null;editId=null;
+  closeSheet('form-overlay');
+  filteredEntries=[...entries];
+  applyFilters();
+  buildFilterOptions();
+  updateStats();
+  toast('Invoice saved ✓');
+}
+
+// ── Delete ────────────────────────────────────────────────────────────────────
+async function del(id){
+  if(!confirm('Delete this invoice entry?'))return;
+  entries=entries.filter(e=>e.id!==id);
+  await dbDel(id);
+  filteredEntries=filteredEntries.filter(e=>e.id!==id);
+  render();updateStats();buildFilterOptions();toast('Entry deleted.');
+}
+
+// ── View Doc ──────────────────────────────────────────────────────────────────
+function viewDoc(id){
+  const e=entries.find(x=>x.id===id);if(!e||!e.docData)return;
+  document.getElementById('view-title').textContent=e.docName||'Invoice';
+  document.getElementById('view-dl').href=e.docData;
+  document.getElementById('view-dl').download=e.docName||'invoice';
+  document.getElementById('view-body').innerHTML=e.docMime==='application/pdf'
+    ?`<iframe src="${e.docData}" class="vframe"></iframe>`
+    :`<img src="${e.docData}" class="vimg" alt="Invoice">`;
+  document.getElementById('view-overlay').classList.add('on');
+}
+
+// ── Render ────────────────────────────────────────────────────────────────────
+function render(){
+  const list=document.getElementById('inv-list');
+  const src=filteredEntries;
+  if(!src.length){
+    list.innerHTML=`<div class="empty-state"><div class="empty-icon">📂</div><div class="empty-title">${entries.length?'No results for filter':'No invoices yet'}</div><div class="empty-hint">${entries.length?'Try clearing the filters above.':'Tap Camera Scan or Upload File to add your first invoice.'}</div></div>`;
+    return;
+  }
+  list.innerHTML=src.map((e,i)=>`
+    <div class="inv-card" style="animation-delay:${i*0.04}s">
+      <div class="inv-card-top">
+        ${e.docData
+          ?(e.docMime==='application/pdf'
+            ?`<div class="inv-doc-pdf" onclick="viewDoc('${e.id}')">📄</div>`
+            :`<img src="${e.docData}" class="inv-doc-thumb" onclick="viewDoc('${e.id}')" alt="doc">`)
+          :`<div class="inv-doc-none">📋</div>`}
+        <div class="inv-main">
+          <div class="inv-patient">${esc(e.patientName)||'Unknown Patient'}</div>
+          <div class="inv-doctor">${esc(e.doctor)||'—'}</div>
+          ${e.description?`<div class="inv-desc">${esc(e.description)}</div>`:''}
+        </div>
+        <div class="inv-amount">€${Number(e.amount).toFixed(2)}</div>
+      </div>
+      <div class="inv-card-bottom">
+        <div class="inv-meta">
+          ${e.date?`<span class="inv-chip">${e.date}</span>`:''}
+          ${e.invoiceNo?`<span class="inv-chip blue">${esc(e.invoiceNo)}</span>`:''}
+          ${e.matricule?`<span class="inv-chip">${esc(e.matricule)}</span>`:''}
+        </div>
+        <div class="inv-actions">
+          <button class="act-btn" onclick="openEdit('${e.id}')">✏️</button>
+          <button class="act-btn del" onclick="del('${e.id}')">🗑</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;')}
+
+// ── Stats ─────────────────────────────────────────────────────────────────────
+function updateStats(){
+  document.getElementById('sc').textContent=entries.length;
+  const tot=entries.reduce((s,e)=>s+(Number(e.amount)||0),0);
+  document.getElementById('st').textContent='€'+tot.toFixed(2);
+  const latest=entries[0];
+  document.getElementById('sl').textContent=latest?(latest.date||'—'):'—';
+}
+function setProc(on,msg='Processing…'){
+  document.getElementById('proc').classList.toggle('on',on);
+  if(on)document.getElementById('proc-msg').textContent=msg;
+}
+
+// ── Export ────────────────────────────────────────────────────────────────────
+function rows(){return filteredEntries.map(e=>({'Date':e.date||'','Matricule':e.matricule||'','Patient Name':e.patientName||'','Invoice No.':e.invoiceNo||'','Doctor':e.doctor||'','Description':e.description||'','Amount (€)':Number(e.amount).toFixed(2),'Document':e.docData?'Yes':'No'}))}
+function expCSV(){
+  const r=rows();if(!r.length){toast('No entries.',true);return}
+  const h=Object.keys(r[0]);
+  const csv=[h.join(','),...r.map(row=>h.map(k=>`"${(row[k]||'').replace(/"/g,'""')}"`).join(','))].join('\n');
+  dlFile('invoices.csv','text/csv',csv);toast('CSV exported.');
+}
+function expExcel(){
+  const r=rows();if(!r.length){toast('No entries.',true);return}
+  const ws=XLSX.utils.json_to_sheet(r),wb=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb,ws,'Invoices');XLSX.writeFile(wb,'invoices.xlsx');
+  toast('Excel exported.');
+}
+function expPDF(){
+  const r=rows();if(!r.length){toast('No entries.',true);return}
+  const tot=filteredEntries.reduce((s,e)=>s+(Number(e.amount)||0),0);
+  const trs=r.map(row=>`<tr><td>${row['Date']}</td><td>${row['Matricule']}</td><td>${row['Patient Name']}</td><td>${row['Invoice No.']}</td><td>${row['Doctor']}</td><td>${row['Description']}</td><td style="text-align:right;font-weight:600">€${row['Amount (€)']}</td></tr>`).join('');
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:-apple-system,sans-serif;padding:2cm;color:#1c1c1e}h1{font-size:18pt;margin-bottom:0.2cm}p{font-size:9pt;color:#888;margin-bottom:0.8cm}table{width:100%;border-collapse:collapse;font-size:8pt}th{background:#1c1c1e;color:white;padding:6px 8px;text-align:left}td{padding:5px 8px;border-bottom:1px solid #eee}tr:nth-child(even){background:#f9f9f9}.total{text-align:right;margin-top:0.6cm;font-size:11pt;font-weight:700}</style></head><body><h1>CNS Invoice Ledger</h1><p>Exported ${new Date().toLocaleDateString()} · ${r.length} entries</p><table><thead><tr><th>Date</th><th>Matricule</th><th>Patient</th><th>Invoice No.</th><th>Doctor</th><th>Description</th><th>Amount</th></tr></thead><tbody>${trs}</tbody></table><div class="total">Total: €${tot.toFixed(2)}</div></body></html>`;
+  const w=window.open('','_blank');w.document.write(html);w.document.close();w.print();
+}
+function dlFile(name,type,content){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([content],{type}));a.download=name;a.click()}
+
+// ── Backup & Restore ──────────────────────────────────────────────────────────
+function downloadBackup(){
+  const data=JSON.stringify({version:1,exported:new Date().toISOString(),entries},null,2);
+  dlFile(`cns-backup-${new Date().toISOString().slice(0,10)}.json`,'application/json',data);
+  toast('Backup downloaded — save to iCloud Drive ☁️');
+}
+function restoreBackup(inp){
+  const file=inp.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=async ev=>{
+    try{
+      const data=JSON.parse(ev.target.result);
+      if(!Array.isArray(data.entries))throw new Error();
+      if(!confirm(`Restore ${data.entries.length} entries? Merges with existing.`))return;
+      let added=0;
+      for(const e of data.entries){if(!entries.find(x=>x.id===e.id)){entries.push(e);await dbPut(e);added++;}}
+      entries.sort((a,b)=>new Date(b.addedAt)-new Date(a.addedAt));
+      filteredEntries=[...entries];
+      render();updateStats();buildFilterOptions();toast(`Restored ${added} entries ✓`);
+    }catch{toast('Invalid backup file.',true);}
+  };
+  reader.readAsText(file);inp.value='';
+}
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+function toast(msg,err=false){
+  const t=document.createElement('div');t.className='toast'+(err?' err':'');t.textContent=msg;
+  document.getElementById('toasts').appendChild(t);
+  setTimeout(()=>{t.style.opacity='0';t.style.transition='opacity 0.3s';setTimeout(()=>t.remove(),300);},3000);
+}
+
+// ── PWA Manifest ──────────────────────────────────────────────────────────────
+const mf={name:"CNS Invoice Ledger",short_name:"CNS",start_url:".",display:"standalone",background_color:"#f2f2f7",theme_color:"#1a1a2e",icons:[{src:"data:image/svg+xml,"+encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect width='192' height='192' rx='40' fill='white'/><rect x='10' y='10' width='58' height='58' rx='7' fill='%238eb832'/><rect x='34' y='34' width='58' height='58' rx='7' fill='%232a7a3b'/><rect x='34' y='58' width='66' height='66' rx='7' fill='%2300aec7'/><rect x='68' y='10' width='36' height='36' rx='6' fill='%23e04a3a'/><text x='108' y='148' font-family='Arial Black,Arial,sans-serif' font-weight='900' font-size='52' fill='%231a1a1a' text-anchor='middle' letter-spacing='-1'>CNS</text></svg>`),sizes:"192x192",type:"image/svg+xml"}]};
+const mb=new Blob([JSON.stringify(mf)],{type:'application/json'});
+const ml=document.createElement('link');ml.rel='manifest';ml.href=URL.createObjectURL(mb);
+document.head.appendChild(ml);
 </script>
 </body>
 </html>
