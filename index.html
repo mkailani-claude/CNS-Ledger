@@ -28,15 +28,20 @@ html,body{height:100%;overflow-x:hidden;font-family:'Inter',system-ui,sans-serif
 #login-screen{
   position:fixed;inset:0;z-index:9999;
   background:linear-gradient(160deg,#0f0f1a 0%,#1a1a2e 60%,#16213e 100%);
-  display:flex;flex-direction:column;align-items:center;justify-content:center;
-  padding:2rem;
-  padding-top:max(env(safe-area-inset-top,44px),44px);
-  padding-bottom:max(env(safe-area-inset-bottom,0px),16px);
+  display:flex;flex-direction:column;align-items:center;
+  overflow-y:auto;-webkit-overflow-scrolling:touch;
+  padding:max(env(safe-area-inset-top,44px),44px) 1.5rem max(env(safe-area-inset-bottom,20px),20px);
 }
-.login-logo{margin-bottom:1.5rem}
-.login-title{font-size:1.6rem;font-weight:700;color:#fff;margin-bottom:0.3rem;text-align:center;letter-spacing:-0.02em}
-.login-sub{font-size:0.75rem;color:#888;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:2.5rem;text-align:center}
-.login-card{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:20px;padding:1.5rem;width:100%;max-width:340px}
+.login-inner{
+  width:100%;max-width:340px;
+  display:flex;flex-direction:column;align-items:center;
+  margin:auto; /* centers vertically when content fits, scrolls when it doesn't */
+  padding:1.5rem 0;
+}
+.login-logo{margin-bottom:1.2rem}
+.login-title{font-size:1.5rem;font-weight:700;color:#fff;margin-bottom:0.25rem;text-align:center;letter-spacing:-0.02em}
+.login-sub{font-size:0.72rem;color:#888;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:1.8rem;text-align:center}
+.login-card{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:20px;padding:1.25rem;width:100%}
 .login-label{font-size:0.72rem;color:#aaa;letter-spacing:0.06em;text-transform:uppercase;margin-bottom:0.5rem;display:block}
 .login-inp-wrap{position:relative;margin-bottom:1rem}
 .login-inp-wrap input{
@@ -48,8 +53,8 @@ html,body{height:100%;overflow-x:hidden;font-family:'Inter',system-ui,sans-serif
 .login-inp-wrap input:focus{outline:none;border-color:rgba(255,255,255,0.4)}
 .login-inp-wrap input.err{border-color:#ff453a;animation:shake 0.35s ease}
 @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
-.eye{position:absolute;right:0.9rem;top:50%;transform:translateY(-50%);background:none;border:none;color:#888;cursor:pointer;font-size:1rem;padding:0.2rem}
-.login-btn{width:100%;padding:0.9rem;background:var(--accent);color:#fff;border:none;border-radius:12px;font-size:1rem;font-weight:600;font-family:inherit;cursor:pointer;transition:opacity 0.15s}
+.eye{position:absolute;right:0;top:0;bottom:0;width:48px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:#888;cursor:pointer;font-size:1.1rem;-webkit-tap-highlight-color:transparent}
+.login-btn{width:100%;padding:0.95rem;background:var(--accent);color:#fff;border:none;border-radius:12px;font-size:1rem;font-weight:600;font-family:inherit;cursor:pointer;transition:opacity 0.15s;-webkit-tap-highlight-color:transparent;min-height:52px}
 .login-btn:active{opacity:0.8}
 .login-err{color:#ff6b6b;font-size:0.78rem;text-align:center;margin-top:0.75rem;min-height:1.1rem}
 
@@ -271,23 +276,18 @@ html,body{height:100%;overflow-x:hidden;font-family:'Inter',system-ui,sans-serif
 
 <!-- ══ LOGIN ══════════════════════════════════════════════════════════════════ -->
 <div id="login-screen">
+  <div class="login-inner">
   <div class="login-logo">
     <!-- Real CNS logo on white card -->
-    <div style="background:#fff;border-radius:20px;padding:1.2rem 1.6rem;display:inline-flex;flex-direction:column;align-items:center;gap:0.5rem;box-shadow:0 4px 24px rgba(0,0,0,0.18)">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 90" width="200">
-        <!-- icon mark: overlapping squares matching real CNS logo -->
-        <!-- lime green (top-left, largest) -->
+    <div style="background:#fff;border-radius:16px;padding:0.9rem 1.3rem;display:inline-flex;flex-direction:column;align-items:center;gap:0.4rem;box-shadow:0 4px 24px rgba(0,0,0,0.18)">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 90" width="160">
         <rect x="2" y="2" width="46" height="46" rx="10" fill="#8dc63f"/>
-        <!-- dark green (middle, overlaps lime) -->
         <rect x="20" y="20" width="40" height="40" rx="9" fill="#008751"/>
-        <!-- cyan/blue (bottom, largest, overlaps green) -->
         <rect x="20" y="34" width="48" height="48" rx="10" fill="#00adef"/>
-        <!-- red (top-right small, overlaps lime) -->
         <rect x="38" y="2" width="26" height="26" rx="7" fill="#ed1c24"/>
-        <!-- CNS bold text -->
         <text x="82" y="58" font-family="Arial Black,Helvetica,sans-serif" font-weight="900" font-size="52" fill="#231f20" letter-spacing="-1">CNS</text>
       </svg>
-      <div style="font-family:'Inter',Arial,sans-serif;font-size:0.82rem;color:#444;letter-spacing:0.01em">d'Gesondheetskeess</div>
+      <div style="font-family:'Inter',Arial,sans-serif;font-size:0.75rem;color:#444;letter-spacing:0.01em">d'Gesondheetskeess</div>
     </div>
   </div>
   <div class="login-title">Invoice Ledger</div>
@@ -302,6 +302,7 @@ html,body{height:100%;overflow-x:hidden;font-family:'Inter',system-ui,sans-serif
     </div>
     <button class="login-btn" onclick="tryLogin()">Unlock</button>
     <div class="login-err" id="login-err"></div>
+  </div>
   </div>
 </div>
 
