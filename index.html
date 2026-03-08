@@ -545,7 +545,7 @@ function handleFile(inp){if(inp.files[0])processFile(inp.files[0]);inp.value=''}
 function doDrag(e,on){e.preventDefault();document.getElementById('dropzone').classList.toggle('over',on)}
 function doDrop(e){e.preventDefault();document.getElementById('dropzone').classList.remove('over');if(e.dataTransfer.files[0])processFile(e.dataTransfer.files[0])}
 
-const GEMINI_KEY = 'AIzaSyBDUGUGOmdYoAWCOxZ1p9peWAFZx4m1GbA';
+const GEMINI_KEY = 'AIzaSyBjZmjwiH5DZZFfnYke-Bu9zBmgLz5q7PM';
 
 function processFile(file){
   const reader=new FileReader();
