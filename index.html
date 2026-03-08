@@ -29,7 +29,9 @@ html,body{height:100%;overflow-x:hidden;font-family:'Inter',system-ui,sans-serif
   position:fixed;inset:0;z-index:9999;
   background:linear-gradient(160deg,#0f0f1a 0%,#1a1a2e 60%,#16213e 100%);
   display:flex;flex-direction:column;align-items:center;justify-content:center;
-  padding:2rem;padding-top:calc(var(--st)+2rem);
+  padding:2rem;
+  padding-top:max(env(safe-area-inset-top,44px),44px);
+  padding-bottom:max(env(safe-area-inset-bottom,0px),16px);
 }
 .login-logo{margin-bottom:1.5rem}
 .login-title{font-size:1.6rem;font-weight:700;color:#fff;margin-bottom:0.3rem;text-align:center;letter-spacing:-0.02em}
@@ -57,7 +59,8 @@ html,body{height:100%;overflow-x:hidden;font-family:'Inter',system-ui,sans-serif
 /* ── HEADER ── */
 .topbar{
   background:var(--card);
-  padding:calc(var(--st) + 8px) 1rem 10px;
+  padding-top:max(env(safe-area-inset-top,44px),44px);
+  padding-left:1rem;padding-right:1rem;padding-bottom:10px;
   border-bottom:1px solid var(--rule);
   position:sticky;top:0;z-index:100;
   display:flex;align-items:center;justify-content:space-between;
@@ -81,7 +84,7 @@ html,body{height:100%;overflow-x:hidden;font-family:'Inter',system-ui,sans-serif
 .ibtn-icon{width:34px;height:34px;padding:0;border-radius:10px;font-size:1rem}
 
 /* ── PAGE ── */
-.page{padding:1rem;padding-bottom:calc(var(--sb)+5rem);max-width:900px;margin:0 auto}
+.page{padding:1rem;padding-bottom:calc(max(env(safe-area-inset-bottom,0px),16px) + 5.5rem);max-width:900px;margin:0 auto}
 
 /* ── SCAN AREA ── */
 .scan-row{display:grid;grid-template-columns:1fr 1fr;gap:0.6rem;margin-bottom:1rem}
@@ -167,10 +170,12 @@ html,body{height:100%;overflow-x:hidden;font-family:'Inter',system-ui,sans-serif
 /* ── BOTTOM TAB BAR ── */
 .tabbar{
   position:fixed;bottom:0;left:0;right:0;
-  background:rgba(255,255,255,0.92);
+  background:rgba(255,255,255,0.95);
   backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
   border-top:1px solid var(--rule);
-  padding:0.5rem 1rem calc(var(--sb)+0.5rem);
+  padding-top:0.5rem;
+  padding-left:1rem;padding-right:1rem;
+  padding-bottom:max(env(safe-area-inset-bottom,0px),16px);
   display:flex;justify-content:space-around;align-items:center;
   z-index:50;
 }
@@ -389,7 +394,7 @@ html,body{height:100%;overflow-x:hidden;font-family:'Inter',system-ui,sans-serif
       <span class="tab-icon">📋</span>
       <span class="tab-label">Ledger</span>
     </button>
-    <button class="tab" onclick="triggerCamera()">
+    <button class="tab" onclick="openScanner()">
       <span class="tab-icon">📷</span>
       <span class="tab-label">Scan</span>
     </button>
@@ -524,574 +529,119 @@ html,body{height:100%;overflow-x:hidden;font-family:'Inter',system-ui,sans-serif
 </div>
 
 <!-- ══ DOCUMENT SCANNER ══════════════════════════════════════════════════════ -->
+<style>
+/* Scanner safe area fixes */
+#scanner-overlay,#crop-overlay{padding-top:env(safe-area-inset-top,44px)}
+.scan-bottom-bar{padding-bottom:max(env(safe-area-inset-bottom,0px),16px)}
+.scan-top-bar{padding-top:max(env(safe-area-inset-top,44px),44px)}
+.scan-mode-btn{background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.2);color:#fff;font-size:0.78rem;font-family:'Inter',sans-serif;padding:0.45rem 0.9rem;border-radius:20px;cursor:pointer;transition:all 0.15s}
+.scan-mode-btn.active{background:#fff;color:#000;border-color:#fff}
+.corner-handle{position:absolute;width:44px;height:44px;transform:translate(-50%,-50%);cursor:grab;display:flex;align-items:center;justify-content:center;touch-action:none}
+.corner-dot{width:20px;height:20px;border-radius:50%;background:#4cd964;border:2px solid #fff;box-shadow:0 0 0 2px rgba(0,0,0,0.3),0 2px 8px rgba(0,0,0,0.4)}
+</style>
+
+<!-- SCANNER VIEWFINDER -->
 <div id="scanner-overlay" style="display:none;position:fixed;inset:0;z-index:2000;background:#000;flex-direction:column">
 
-  <!-- Live viewfinder -->
-  <div style="position:relative;flex:1;overflow:hidden" id="scanner-view">
-    <video id="scanner-video" autoplay playsinline muted
-      style="width:100%;height:100%;object-fit:cover;display:block"></video>
-
-    <!-- Overlay canvas for edge guide lines -->
-    <canvas id="scanner-guide" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none"></canvas>
-
-    <!-- Corner guide frame -->
-    <div id="doc-frame" style="position:absolute;border:2px solid rgba(255,255,255,0.25);display:none;pointer-events:none;transition:all 0.1s ease;box-shadow:0 0 0 2000px rgba(0,0,0,0.35)">
-      <div style="position:absolute;top:-2px;left:-2px;width:24px;height:24px;border-top:3px solid #4cd964;border-left:3px solid #4cd964;border-radius:3px 0 0 0"></div>
-      <div style="position:absolute;top:-2px;right:-2px;width:24px;height:24px;border-top:3px solid #4cd964;border-right:3px solid #4cd964;border-radius:0 3px 0 0"></div>
-      <div style="position:absolute;bottom:-2px;left:-2px;width:24px;height:24px;border-bottom:3px solid #4cd964;border-left:3px solid #4cd964;border-radius:0 0 0 3px"></div>
-      <div style="position:absolute;bottom:-2px;right:-2px;width:24px;height:24px;border-bottom:3px solid #4cd964;border-right:3px solid #4cd964;border-radius:0 0 3px 0"></div>
-    </div>
-
-    <!-- Status pill -->
-    <div id="scan-status" style="position:absolute;top:calc(env(safe-area-inset-top,44px)+12px);left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.6);backdrop-filter:blur(8px);color:#fff;font-size:0.78rem;font-family:'Inter',sans-serif;padding:0.4rem 1rem;border-radius:20px;white-space:nowrap;letter-spacing:0.02em">
-      🔍 Looking for document…
-    </div>
-
-    <!-- Flash toggle -->
-    <button id="flash-btn" onclick="toggleFlash()" style="position:absolute;top:calc(env(safe-area-inset-top,44px)+10px);right:1rem;background:rgba(0,0,0,0.5);border:none;color:#fff;font-size:1.3rem;width:42px;height:42px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center">⚡</button>
+  <!-- Top bar - BELOW status bar -->
+  <div class="scan-top-bar" style="background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:space-between;padding-left:1rem;padding-right:1rem;padding-bottom:0.75rem;flex-shrink:0">
+    <button onclick="closeScanner()" style="background:none;border:none;color:#fff;font-size:1rem;font-family:'Inter',sans-serif;font-weight:500;padding:0.3rem 0.5rem;cursor:pointer;min-width:64px">Cancel</button>
+    <div id="scan-status" style="color:#fff;font-size:0.8rem;font-family:'Inter',sans-serif;text-align:center;padding:0.3rem 0.9rem;background:rgba(255,255,255,0.15);border-radius:16px">📷 Position document in frame</div>
+    <button id="flash-btn" onclick="toggleFlash()" style="background:rgba(255,255,255,0.15);border:none;color:#fff;font-size:1rem;width:36px;height:36px;border-radius:50%;cursor:pointer;min-width:36px">⚡</button>
   </div>
 
-  <!-- Bottom controls -->
-  <div style="background:#111;padding:1.2rem 2rem calc(env(safe-area-inset-bottom,0px)+1.2rem);display:flex;align-items:center;justify-content:space-between;gap:1rem">
+  <!-- Camera viewport -->
+  <div style="position:relative;flex:1;overflow:hidden;background:#000" id="scanner-view">
+    <video id="scanner-video" autoplay playsinline muted style="width:100%;height:100%;object-fit:cover;display:block"></video>
 
-    <button onclick="closeScanner()" style="background:rgba(255,255,255,0.12);border:none;color:#fff;font-size:0.82rem;font-family:'Inter',sans-serif;padding:0.6rem 1.2rem;border-radius:20px;cursor:pointer">Cancel</button>
+    <!-- SVG overlay showing document polygon + draggable corners -->
+    <svg id="scanner-svg" style="position:absolute;inset:0;width:100%;height:100%;overflow:visible" touch-action="none">
+      <!-- Dimming mask around document -->
+      <defs>
+        <mask id="doc-mask">
+          <rect width="100%" height="100%" fill="white"/>
+          <polygon id="doc-clear" points="" fill="black"/>
+        </mask>
+      </defs>
+      <rect width="100%" height="100%" fill="rgba(0,0,0,0.45)" mask="url(#doc-mask)"/>
+      <!-- Document outline -->
+      <polygon id="doc-outline" points="" fill="none" stroke="#4cd964" stroke-width="2" stroke-linejoin="round"/>
+      <!-- Edge lines -->
+      <line id="edge-top" stroke="#4cd964" stroke-width="1.5" stroke-dasharray="6,4" opacity="0.7"/>
+      <line id="edge-right" stroke="#4cd964" stroke-width="1.5" stroke-dasharray="6,4" opacity="0.7"/>
+      <line id="edge-bottom" stroke="#4cd964" stroke-width="1.5" stroke-dasharray="6,4" opacity="0.7"/>
+      <line id="edge-left" stroke="#4cd964" stroke-width="1.5" stroke-dasharray="6,4" opacity="0.7"/>
+    </svg>
 
-    <!-- Shutter button -->
-    <button id="shutter-btn" onclick="captureFrame()" style="width:72px;height:72px;border-radius:50%;background:#fff;border:4px solid rgba(255,255,255,0.4);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.8rem;box-shadow:0 0 0 6px rgba(255,255,255,0.15);transition:transform 0.1s">📸</button>
+    <!-- Draggable corner handles (HTML elements for easy touch) -->
+    <div class="corner-handle" id="corner-tl" data-i="0"><div class="corner-dot"></div></div>
+    <div class="corner-handle" id="corner-tr" data-i="1"><div class="corner-dot"></div></div>
+    <div class="corner-handle" id="corner-br" data-i="2"><div class="corner-dot"></div></div>
+    <div class="corner-handle" id="corner-bl" data-i="3"><div class="corner-dot"></div></div>
+  </div>
 
-    <!-- Manual crop fallback -->
-    <button onclick="captureManual()" style="background:rgba(255,255,255,0.12);border:none;color:#fff;font-size:0.82rem;font-family:'Inter',sans-serif;padding:0.6rem 1.2rem;border-radius:20px;cursor:pointer">Manual</button>
+  <!-- Bottom shutter bar -->
+  <div class="scan-bottom-bar" style="background:rgba(0,0,0,0.85);padding-top:1rem;padding-left:2rem;padding-right:2rem;display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-shrink:0">
+    <div style="min-width:64px;color:#aaa;font-size:0.72rem;font-family:'Inter',sans-serif;text-align:center;line-height:1.4">Drag<br>corners</div>
+    <button id="shutter-btn" onclick="captureFrame()" style="width:72px;height:72px;border-radius:50%;background:#fff;border:5px solid rgba(255,255,255,0.3);cursor:pointer;flex-shrink:0;font-size:2rem;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 8px rgba(255,255,255,0.1);-webkit-tap-highlight-color:transparent">📸</button>
+    <button onclick="autoDetect()" style="min-width:64px;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.2);color:#fff;font-size:0.75rem;font-family:'Inter',sans-serif;padding:0.5rem 0.7rem;border-radius:12px;cursor:pointer;line-height:1.3">Auto<br>Detect</button>
   </div>
 </div>
 
-<!-- Crop review screen (shown after capture) -->
-<div id="crop-overlay" style="display:none;position:fixed;inset:0;z-index:2100;background:#000;flex-direction:column;align-items:center">
-  <div style="padding:calc(env(safe-area-inset-top,44px)+12px) 1rem 0.75rem;display:flex;align-items:center;justify-content:space-between;width:100%;background:#111">
-    <button onclick="retakeScan()" style="background:none;border:none;color:#fff;font-size:0.9rem;font-family:'Inter',sans-serif;padding:0.4rem 0.6rem;cursor:pointer">↩ Retake</button>
-    <span style="color:#fff;font-size:0.9rem;font-weight:600;font-family:'Inter',sans-serif">Review Scan</span>
-    <button onclick="confirmScan()" style="background:#4cd964;border:none;color:#000;font-size:0.9rem;font-weight:700;font-family:'Inter',sans-serif;padding:0.45rem 1rem;border-radius:12px;cursor:pointer">Use ✓</button>
+<!-- REVIEW SCREEN - after capture -->
+<div id="crop-overlay" style="display:none;position:fixed;inset:0;z-index:2100;background:#1a1a1a;flex-direction:column">
+
+  <!-- Top bar -->
+  <div class="scan-top-bar" style="background:#111;display:flex;align-items:center;justify-content:space-between;padding-left:1rem;padding-right:1rem;padding-bottom:0.75rem;flex-shrink:0">
+    <button onclick="retakeScan()" style="background:none;border:none;color:#fff;font-size:0.95rem;font-family:'Inter',sans-serif;font-weight:500;padding:0.3rem 0.5rem;cursor:pointer">↩ Retake</button>
+    <span style="color:#fff;font-size:0.95rem;font-weight:600;font-family:'Inter',sans-serif">Review Scan</span>
+    <button onclick="confirmScan()" style="background:#4cd964;border:none;color:#000;font-size:0.9rem;font-weight:700;font-family:'Inter',sans-serif;padding:0.5rem 1.1rem;border-radius:12px;cursor:pointer">Use ✓</button>
   </div>
-  <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:1rem;width:100%;overflow:hidden">
-    <canvas id="crop-canvas" style="max-width:100%;max-height:100%;border-radius:8px;box-shadow:0 4px 32px rgba(0,0,0,0.6)"></canvas>
+
+  <!-- Preview image -->
+  <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:0.75rem;overflow:hidden">
+    <canvas id="crop-canvas" style="max-width:100%;max-height:100%;border-radius:10px;box-shadow:0 4px 32px rgba(0,0,0,0.6)"></canvas>
   </div>
-  <div style="padding:0.75rem 1rem calc(env(safe-area-inset-bottom,0px)+0.75rem);display:flex;gap:0.6rem;justify-content:center;background:#111;width:100%">
+
+  <!-- Mode buttons -->
+  <div class="scan-bottom-bar" style="background:#111;padding-top:0.75rem;display:flex;gap:0.5rem;justify-content:center;padding-left:1rem;padding-right:1rem;flex-shrink:0">
     <button onclick="setScanMode('color')" id="mode-color" class="scan-mode-btn active">🎨 Color</button>
     <button onclick="setScanMode('gray')" id="mode-gray" class="scan-mode-btn">🔲 Grayscale</button>
     <button onclick="setScanMode('bw')" id="mode-bw" class="scan-mode-btn">📄 B&amp;W</button>
   </div>
 </div>
 
-<div id="toasts"></div>
-
-<style>
-.scan-mode-btn{background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;font-size:0.78rem;font-family:'Inter',sans-serif;padding:0.45rem 0.9rem;border-radius:20px;cursor:pointer;transition:all 0.15s}
-.scan-mode-btn.active{background:#fff;color:#000;border-color:#fff}
-</style>
-
 <script>
-// ── PASSWORD ──────────────────────────────────────────────────────────────────
-const DEFAULT_PW='Invoices2026', PW_KEY='ilpw_v1';
-let failCount=0, lockUntil=0;
-function getStoredPw(){return localStorage.getItem(PW_KEY)||DEFAULT_PW}
-function tryLogin(){
-  const now=Date.now();
-  if(now<lockUntil){const s=Math.ceil((lockUntil-now)/1000);setErr('Locked. Try in '+s+'s.');return}
-  const v=document.getElementById('pw-input').value;
-  if(v===getStoredPw()){
-    failCount=0;
-    document.getElementById('login-screen').style.display='none';
-    document.getElementById('app').style.display='block';
-    document.getElementById('pw-input').value='';
-    initApp();
-  } else {
-    failCount++;
-    const inp=document.getElementById('pw-input');
-    inp.classList.add('err');setTimeout(()=>inp.classList.remove('err'),400);
-    if(failCount>=5){lockUntil=Date.now()+30000;failCount=0;countdownTick();setErr('Too many attempts. Locked 30s.');}
-    else setErr('Wrong password. '+(5-failCount)+' attempt'+(5-failCount===1?'':'s')+' left.');
-  }
-}
-function setErr(m){document.getElementById('login-err').textContent=m}
-function countdownTick(){const i=setInterval(()=>{const r=Math.ceil((lockUntil-Date.now())/1000);if(r<=0){clearInterval(i);setErr('');}else setErr('Locked. Try in '+r+'s.');},1000)}
-function toggleEye(){const i=document.getElementById('pw-input');i.type=i.type==='password'?'text':'password'}
-function togglePwField(id){const i=document.getElementById(id);i.type=i.type==='password'?'text':'password'}
-function changePassword(){
-  const cur=document.getElementById('pw-current').value;
-  const nw=document.getElementById('pw-new').value;
-  const cf=document.getElementById('pw-confirm').value;
-  const msg=document.getElementById('pw-msg');
-  if(cur!==getStoredPw()){msg.style.color=getComputedStyle(document.documentElement).getPropertyValue('--accent');msg.textContent='Current password incorrect.';return}
-  if(nw.length<4){msg.style.color='var(--accent)';msg.textContent='At least 4 characters needed.';return}
-  if(nw!==cf){msg.style.color='var(--accent)';msg.textContent="Passwords don't match.";return}
-  localStorage.setItem(PW_KEY,nw);
-  ['pw-current','pw-new','pw-confirm'].forEach(id=>document.getElementById(id).value='');
-  msg.style.color='var(--green)';msg.textContent='✓ Password updated.';
-  setTimeout(()=>msg.textContent='',3000);
-}
-function lockApp(){
-  closeSheet('setup-overlay');
-  document.getElementById('app').style.display='none';
-  document.getElementById('login-screen').style.display='flex';
-  document.getElementById('pw-input').value='';setErr('');
-}
-
-// ── API KEY ───────────────────────────────────────────────────────────────────
-const AK_KEY='cns_api_key';
-function getApiKey(){return localStorage.getItem(AK_KEY)||''}
-function saveApiKey(k){localStorage.setItem(AK_KEY,k.trim())}
-function hasApiKey(){return !!getApiKey()}
-function saveApiKeyFromInput(){
-  const k=document.getElementById('api-key-input').value.trim();
-  const msg=document.getElementById('apikey-msg');
-  if(!k){msg.style.color='var(--accent)';msg.textContent='Please enter your API key.';return}
-  if(!k.startsWith('sk-ant-')){msg.style.color='var(--accent)';msg.textContent='Key should start with sk-ant-';return}
-  saveApiKey(k);
-  msg.style.color='var(--green)';msg.textContent='✓ API key saved on this device.';
-  setTimeout(()=>msg.textContent='',3000);
-}
-
-// ── IndexedDB ─────────────────────────────────────────────────────────────────
-const DB_NAME='invoiceLedger',DB_VER=1,STORE='entries';
-let db=null;
-function openDB(){return new Promise((res,rej)=>{const req=indexedDB.open(DB_NAME,DB_VER);req.onupgradeneeded=e=>e.target.result.createObjectStore(STORE,{keyPath:'id'});req.onsuccess=e=>{db=e.target.result;res(db)};req.onerror=()=>rej(req.error)})}
-function dbGetAll(){return new Promise((res,rej)=>{const tx=db.transaction(STORE,'readonly');const req=tx.objectStore(STORE).getAll();req.onsuccess=()=>res(req.result||[]);req.onerror=()=>rej(req.error)})}
-function dbPut(e){return new Promise((res,rej)=>{const tx=db.transaction(STORE,'readwrite');const req=tx.objectStore(STORE).put(e);req.onsuccess=()=>res();req.onerror=()=>rej(req.error)})}
-function dbDel(id){return new Promise((res,rej)=>{const tx=db.transaction(STORE,'readwrite');const req=tx.objectStore(STORE).delete(id);req.onsuccess=()=>res();req.onerror=()=>rej(req.error)})}
-
-// ── State ─────────────────────────────────────────────────────────────────────
-let entries=[],editId=null,pendingDoc=null,filteredEntries=[];
-
-async function initApp(){
-  await openDB();
-  entries=await dbGetAll();
-  entries.sort((a,b)=>new Date(b.addedAt)-new Date(a.addedAt));
-  filteredEntries=[...entries];
-  render();updateStats();buildFilterOptions();
-  if(!hasApiKey()) setTimeout(()=>toast('Tap ⚙ Settings to enter your API key',false),600);
-}
-
-// ── Upload ────────────────────────────────────────────────────────────────────
-function triggerUpload(){
-  if(!hasApiKey()){showSetup();toast('Enter your API key in Settings first.',true);return}
-  document.getElementById('fileinput').click();
-}
-function triggerCamera(){
-  if(!hasApiKey()){showSetup();toast('Enter your API key in Settings first.',true);return}
-  openScanner();
-}
-function handleFile(inp){if(inp.files[0])processFile(inp.files[0]);inp.value=''}
-function doDrag(e,on){e.preventDefault()}
-function scrollToTop(){window.scrollTo({top:0,behavior:'smooth'})}
-
-function processFile(file){
-  const reader=new FileReader();
-  reader.onload=async ev=>{
-    const original=ev.target.result;
-    const isPdf=file.type==='application/pdf';
-    let finalUrl=original, finalMime=file.type;
-    if(!isPdf){
-      setProc(true,'Enhancing image…');
-      try{finalUrl=await enhanceImage(original);finalMime='image/jpeg';}
-      catch(e){finalUrl=original;finalMime=file.type;}
-    }
-    pendingDoc={dataUrl:finalUrl,mime:finalMime,name:file.name};
-    await extractAI(finalUrl,finalMime);
-  };
-  reader.readAsDataURL(file);
-}
-
-// ── Image Enhancement — FIXED (no inversion, natural scan look) ──────────────
-function enhanceImage(dataUrl){
-  return new Promise((resolve,reject)=>{
-    const img=new Image();
-    img.onload=()=>{
-      const canvas=document.createElement('canvas');
-      // Scale up for better OCR resolution
-      const maxDim=2400;
-      const scale=Math.min(maxDim/Math.max(img.width,img.height),2.5);
-      canvas.width=img.width*(scale>1?scale:1);
-      canvas.height=img.height*(scale>1?scale:1);
-      const ctx=canvas.getContext('2d');
-
-      // 1. Draw original image
-      ctx.drawImage(img,0,0,canvas.width,canvas.height);
-
-      const imageData=ctx.getImageData(0,0,canvas.width,canvas.height);
-      const d=imageData.data;
-      const len=d.length;
-
-      // 2. Find actual min/max brightness for auto-leveling (don't invert!)
-      let minV=255,maxV=0;
-      for(let i=0;i<len;i+=4){
-        const g=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];
-        if(g<minV)minV=g;if(g>maxV)maxV=g;
-      }
-      const range=maxV-minV||1;
-
-      // 3. Auto-levels + moderate contrast boost (white stays white, black stays black)
-      for(let i=0;i<len;i+=4){
-        // Convert to grayscale
-        let g=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];
-        // Stretch histogram so paper white → 255, ink black → 0
-        g=((g-minV)/range)*255;
-        // Moderate S-curve contrast (no harsh threshold that inverts)
-        // Brighten whites, darken darks
-        if(g>200) g=Math.min(255,g*1.08);       // whites brighter
-        else if(g<80) g=Math.max(0,g*0.7);       // darks darker
-        // else midtones stay natural
-        g=Math.max(0,Math.min(255,g));
-        d[i]=d[i+1]=d[i+2]=g;
-        // d[i+3] alpha unchanged
-      }
-      ctx.putImageData(imageData,0,0);
-
-      // 4. Light sharpening pass
-      const sharp=ctx.getImageData(0,0,canvas.width,canvas.height);
-      const src=new Uint8ClampedArray(sharp.data);
-      const w=canvas.width,h=canvas.height;
-      // Subtle unsharp mask kernel
-      const k=[0,-0.5,0,-0.5,3,-0.5,0,-0.5,0];
-      for(let y=1;y<h-1;y++){
-        for(let x=1;x<w-1;x++){
-          const idx=(y*w+x)*4;
-          let v=0;
-          for(let ky=-1;ky<=1;ky++)for(let kx=-1;kx<=1;kx++)v+=src[((y+ky)*w+(x+kx))*4]*k[(ky+1)*3+(kx+1)];
-          v=Math.max(0,Math.min(255,v));
-          sharp.data[idx]=sharp.data[idx+1]=sharp.data[idx+2]=v;
-        }
-      }
-      ctx.putImageData(sharp,0,0);
-
-      resolve(canvas.toDataURL('image/jpeg',0.92));
-    };
-    img.onerror=reject;
-    img.src=dataUrl;
-  });
-}
-
-// ── AI Extraction (Anthropic Claude Haiku) ────────────────────────────────────
-async function extractAI(dataUrl,mime){
-  setProc(true,'Extracting invoice data…');
-  try{
-    const b64=dataUrl.split(',')[1];
-    const isPdf=mime==='application/pdf';
-    const imageMime=isPdf?'application/pdf':(mime.startsWith('image/')?mime:'image/jpeg');
-    const prompt=`Look at this invoice carefully. Return ONLY a raw JSON object, no markdown, no explanation:
-{"date":"invoice date as YYYY-MM-DD or empty","matricule":"patient matricule or social security number or empty","patientName":"full patient name or empty","invoiceNo":"invoice reference number or empty","doctor":"doctor or clinic name or empty","description":"medical service description or empty","amount":"total amount as number string like 36.00 or empty"}`;
-    const contentBlock=isPdf
-      ?{type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}}
-      :{type:'image',source:{type:'base64',media_type:imageMime,data:b64}};
-    const res=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{
-        'Content-Type':'application/json',
-        'x-api-key':getApiKey(),
-        'anthropic-version':'2023-06-01',
-        'anthropic-dangerous-direct-browser-access':'true'
-      },
-      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:512,
-        messages:[{role:'user',content:[contentBlock,{type:'text',text:prompt}]}]})
-    });
-    const data=await res.json();
-    if(data.error){setProc(false);showBanner('API Error: '+data.error.message);openForm({},true);return}
-    const txt=(data.content||[]).map(c=>c.text||'').join('');
-    const m=txt.match(/\{[\s\S]*\}/);
-    if(!m){setProc(false);showBanner('Could not parse response: '+txt.substring(0,100));openForm({},true);return}
-    const parsed=JSON.parse(m[0]);
-    setProc(false);openForm(parsed,true);
-  }catch(err){setProc(false);showBanner('Error: '+err.message);openForm({},true);}
-}
-
-function showBanner(msg){
-  let b=document.getElementById('err-banner');
-  if(!b){b=document.createElement('div');b.id='err-banner';b.className='err-banner';b.onclick=()=>b.remove();document.body.appendChild(b);}
-  b.innerHTML='⚠️ <strong>Extraction failed</strong> — tap to dismiss<br><span style="font-size:0.7rem;font-family:monospace">'+msg+'</span>';
-  setTimeout(()=>{if(b.parentNode)b.remove();},12000);
-}
-
-// ── API Test ──────────────────────────────────────────────────────────────────
-async function testAPI(){
-  const box=document.getElementById('test-result');
-  box.style.display='block';box.style.color='var(--muted)';box.textContent='Testing Claude API…';
-  try{
-    const res=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','x-api-key':getApiKey(),'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:30,messages:[{role:'user',content:'Reply with: {"ok":true}'}]})
-    });
-    const data=await res.json();
-    if(data.error){box.style.color='var(--accent)';box.textContent='❌ Error: '+data.error.type+'\n'+data.error.message;}
-    else{const t=(data.content||[]).map(c=>c.text||'').join('');box.style.color='var(--green)';box.textContent='✅ Claude is connected!\n\nResponse: '+t+'\n\nScanning will work.';}
-  }catch(e){box.style.color='var(--accent)';box.textContent='❌ Network error: '+e.message;}
-}
-
-// ── Filters ───────────────────────────────────────────────────────────────────
-function buildFilterOptions(){
-  const mats=new Set(entries.map(e=>e.matricule).filter(Boolean));
-  const months=new Set(entries.map(e=>e.date?e.date.substring(0,7):null).filter(Boolean));
-  const matSel=document.getElementById('filter-mat');
-  const monthSel=document.getElementById('filter-month');
-  const curMat=matSel.value, curMonth=monthSel.value;
-  matSel.innerHTML='<option value="">All Matricules</option>';
-  months.forEach(m=>{ // sorted months
-    const opt=document.createElement('option');
-    opt.value=m;opt.textContent=formatMonth(m);monthSel.appendChild(opt);
-  });
-  monthSel.innerHTML='<option value="">All Months</option>';
-  [...months].sort().reverse().forEach(m=>{
-    const opt=document.createElement('option');opt.value=m;opt.textContent=formatMonth(m);monthSel.appendChild(opt);
-  });
-  [...mats].sort().forEach(mat=>{
-    const opt=document.createElement('option');opt.value=mat;opt.textContent=mat;matSel.appendChild(opt);
-  });
-  if(curMat)matSel.value=curMat;
-  if(curMonth)monthSel.value=curMonth;
-}
-function formatMonth(ym){
-  try{const d=new Date(ym+'-01');return d.toLocaleString('default',{month:'long',year:'numeric'});}catch{return ym;}
-}
-function applyFilters(){
-  const mat=document.getElementById('filter-mat').value;
-  const month=document.getElementById('filter-month').value;
-  filteredEntries=entries.filter(e=>{
-    const matchMat=!mat||e.matricule===mat;
-    const matchMonth=!month||(e.date&&e.date.startsWith(month));
-    return matchMat&&matchMonth;
-  });
-  const hasFilter=mat||month;
-  document.getElementById('filter-clear-btn').classList.toggle('show',hasFilter);
-  document.getElementById('sf').textContent=hasFilter?filteredEntries.length+' shown':'All';
-  render();
-}
-function clearFilters(){
-  document.getElementById('filter-mat').value='';
-  document.getElementById('filter-month').value='';
-  filteredEntries=[...entries];
-  document.getElementById('filter-clear-btn').classList.remove('show');
-  document.getElementById('sf').textContent='All';
-  render();
-}
-
-// ── Form Sheet ────────────────────────────────────────────────────────────────
-function openForm(data={},ai=false){
-  editId=null;
-  document.getElementById('form-title').textContent=ai?'Review Extracted Data':'New Invoice';
-  document.getElementById('ai-banner').style.display=ai?'flex':'none';
-  document.getElementById('docfield').style.display=pendingDoc?'block':'none';
-  setFields(data);
-  document.getElementById('form-overlay').classList.add('on');
-}
-function openManual(){pendingDoc=null;openForm({},false);}
-function openEdit(id){
-  const e=entries.find(x=>x.id===id);if(!e)return;
-  editId=id;pendingDoc=null;
-  document.getElementById('form-title').textContent='Edit Invoice';
-  document.getElementById('ai-banner').style.display='none';
-  document.getElementById('docfield').style.display=e.docData?'block':'none';
-  setFields(e);
-  document.getElementById('form-overlay').classList.add('on');
-}
-function setFields(d){
-  document.getElementById('f-date').value=d.date||'';
-  document.getElementById('f-mat').value=d.matricule||'';
-  document.getElementById('f-pat').value=d.patientName||'';
-  document.getElementById('f-inv').value=d.invoiceNo||'';
-  document.getElementById('f-doc').value=d.doctor||'';
-  document.getElementById('f-desc').value=d.description||'';
-  document.getElementById('f-amt').value=d.amount||'';
-}
-function closeSheet(id){document.getElementById(id).classList.remove('on')}
-function overlayTap(e,id){if(e.target===document.getElementById(id))closeSheet(id)}
-function showSetup(){
-  const k=getApiKey();if(k)document.getElementById('api-key-input').value=k;
-  document.getElementById('setup-overlay').classList.add('on');
-}
-
-// ── Save ──────────────────────────────────────────────────────────────────────
-async function saveEntry(){
-  const entry={
-    date:document.getElementById('f-date').value,
-    matricule:document.getElementById('f-mat').value.trim(),
-    patientName:document.getElementById('f-pat').value.trim(),
-    invoiceNo:document.getElementById('f-inv').value.trim(),
-    doctor:document.getElementById('f-doc').value.trim(),
-    description:document.getElementById('f-desc').value.trim(),
-    amount:parseFloat(document.getElementById('f-amt').value)||0,
-    docData:null,docMime:null,docName:null,
-    addedAt:new Date().toISOString()
-  };
-  if(!entry.patientName&&!entry.invoiceNo){toast('Enter Patient Name or Invoice Number.',true);return}
-  if(editId){
-    const old=entries.find(x=>x.id===editId);
-    entry.id=editId;entry.addedAt=old.addedAt;
-    entry.docData=old.docData;entry.docMime=old.docMime;entry.docName=old.docName;
-    entries[entries.findIndex(x=>x.id===editId)]=entry;
-  }else{
-    entry.id='e'+Date.now();
-    if(pendingDoc){entry.docData=pendingDoc.dataUrl;entry.docMime=pendingDoc.mime;entry.docName=pendingDoc.name;}
-    entries.unshift(entry);
-  }
-  await dbPut(entry);
-  pendingDoc=null;editId=null;
-  closeSheet('form-overlay');
-  filteredEntries=[...entries];
-  applyFilters();
-  buildFilterOptions();
-  updateStats();
-  toast('Invoice saved ✓');
-}
-
-// ── Delete ────────────────────────────────────────────────────────────────────
-async function del(id){
-  if(!confirm('Delete this invoice entry?'))return;
-  entries=entries.filter(e=>e.id!==id);
-  await dbDel(id);
-  filteredEntries=filteredEntries.filter(e=>e.id!==id);
-  render();updateStats();buildFilterOptions();toast('Entry deleted.');
-}
-
-// ── View Doc ──────────────────────────────────────────────────────────────────
-function viewDoc(id){
-  const e=entries.find(x=>x.id===id);if(!e||!e.docData)return;
-  document.getElementById('view-title').textContent=e.docName||'Invoice';
-  document.getElementById('view-dl').href=e.docData;
-  document.getElementById('view-dl').download=e.docName||'invoice';
-  document.getElementById('view-body').innerHTML=e.docMime==='application/pdf'
-    ?`<iframe src="${e.docData}" class="vframe"></iframe>`
-    :`<img src="${e.docData}" class="vimg" alt="Invoice">`;
-  document.getElementById('view-overlay').classList.add('on');
-}
-
-// ── Render ────────────────────────────────────────────────────────────────────
-function render(){
-  const list=document.getElementById('inv-list');
-  const src=filteredEntries;
-  if(!src.length){
-    list.innerHTML=`<div class="empty-state"><div class="empty-icon">📂</div><div class="empty-title">${entries.length?'No results for filter':'No invoices yet'}</div><div class="empty-hint">${entries.length?'Try clearing the filters above.':'Tap Camera Scan or Upload File to add your first invoice.'}</div></div>`;
-    return;
-  }
-  list.innerHTML=src.map((e,i)=>`
-    <div class="inv-card" style="animation-delay:${i*0.04}s">
-      <div class="inv-card-top">
-        ${e.docData
-          ?(e.docMime==='application/pdf'
-            ?`<div class="inv-doc-pdf" onclick="viewDoc('${e.id}')">📄</div>`
-            :`<img src="${e.docData}" class="inv-doc-thumb" onclick="viewDoc('${e.id}')" alt="doc">`)
-          :`<div class="inv-doc-none">📋</div>`}
-        <div class="inv-main">
-          <div class="inv-patient">${esc(e.patientName)||'Unknown Patient'}</div>
-          <div class="inv-doctor">${esc(e.doctor)||'—'}</div>
-          ${e.description?`<div class="inv-desc">${esc(e.description)}</div>`:''}
-        </div>
-        <div class="inv-amount">€${Number(e.amount).toFixed(2)}</div>
-      </div>
-      <div class="inv-card-bottom">
-        <div class="inv-meta">
-          ${e.date?`<span class="inv-chip">${e.date}</span>`:''}
-          ${e.invoiceNo?`<span class="inv-chip blue">${esc(e.invoiceNo)}</span>`:''}
-          ${e.matricule?`<span class="inv-chip">${esc(e.matricule)}</span>`:''}
-        </div>
-        <div class="inv-actions">
-          <button class="act-btn" onclick="openEdit('${e.id}')">✏️</button>
-          <button class="act-btn del" onclick="del('${e.id}')">🗑</button>
-        </div>
-      </div>
-    </div>`).join('');
-}
-function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;')}
-
-// ── Stats ─────────────────────────────────────────────────────────────────────
-function updateStats(){
-  document.getElementById('sc').textContent=entries.length;
-  const tot=entries.reduce((s,e)=>s+(Number(e.amount)||0),0);
-  document.getElementById('st').textContent='€'+tot.toFixed(2);
-  const latest=entries[0];
-  document.getElementById('sl').textContent=latest?(latest.date||'—'):'—';
-}
-function setProc(on,msg='Processing…'){
-  document.getElementById('proc').classList.toggle('on',on);
-  if(on)document.getElementById('proc-msg').textContent=msg;
-}
-
-// ── Export ────────────────────────────────────────────────────────────────────
-function rows(){return filteredEntries.map(e=>({'Date':e.date||'','Matricule':e.matricule||'','Patient Name':e.patientName||'','Invoice No.':e.invoiceNo||'','Doctor':e.doctor||'','Description':e.description||'','Amount (€)':Number(e.amount).toFixed(2),'Document':e.docData?'Yes':'No'}))}
-function expCSV(){
-  const r=rows();if(!r.length){toast('No entries.',true);return}
-  const h=Object.keys(r[0]);
-  const csv=[h.join(','),...r.map(row=>h.map(k=>`"${(row[k]||'').replace(/"/g,'""')}"`).join(','))].join('\n');
-  dlFile('invoices.csv','text/csv',csv);toast('CSV exported.');
-}
-function expExcel(){
-  const r=rows();if(!r.length){toast('No entries.',true);return}
-  const ws=XLSX.utils.json_to_sheet(r),wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,ws,'Invoices');XLSX.writeFile(wb,'invoices.xlsx');
-  toast('Excel exported.');
-}
-function expPDF(){
-  const r=rows();if(!r.length){toast('No entries.',true);return}
-  const tot=filteredEntries.reduce((s,e)=>s+(Number(e.amount)||0),0);
-  const trs=r.map(row=>`<tr><td>${row['Date']}</td><td>${row['Matricule']}</td><td>${row['Patient Name']}</td><td>${row['Invoice No.']}</td><td>${row['Doctor']}</td><td>${row['Description']}</td><td style="text-align:right;font-weight:600">€${row['Amount (€)']}</td></tr>`).join('');
-  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:-apple-system,sans-serif;padding:2cm;color:#1c1c1e}h1{font-size:18pt;margin-bottom:0.2cm}p{font-size:9pt;color:#888;margin-bottom:0.8cm}table{width:100%;border-collapse:collapse;font-size:8pt}th{background:#1c1c1e;color:white;padding:6px 8px;text-align:left}td{padding:5px 8px;border-bottom:1px solid #eee}tr:nth-child(even){background:#f9f9f9}.total{text-align:right;margin-top:0.6cm;font-size:11pt;font-weight:700}</style></head><body><h1>CNS Invoice Ledger</h1><p>Exported ${new Date().toLocaleDateString()} · ${r.length} entries</p><table><thead><tr><th>Date</th><th>Matricule</th><th>Patient</th><th>Invoice No.</th><th>Doctor</th><th>Description</th><th>Amount</th></tr></thead><tbody>${trs}</tbody></table><div class="total">Total: €${tot.toFixed(2)}</div></body></html>`;
-  const w=window.open('','_blank');w.document.write(html);w.document.close();w.print();
-}
-function dlFile(name,type,content){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([content],{type}));a.download=name;a.click()}
-
-// ── Backup & Restore ──────────────────────────────────────────────────────────
-function downloadBackup(){
-  const data=JSON.stringify({version:1,exported:new Date().toISOString(),entries},null,2);
-  dlFile(`cns-backup-${new Date().toISOString().slice(0,10)}.json`,'application/json',data);
-  toast('Backup downloaded — save to iCloud Drive ☁️');
-}
-function restoreBackup(inp){
-  const file=inp.files[0];if(!file)return;
-  const reader=new FileReader();
-  reader.onload=async ev=>{
-    try{
-      const data=JSON.parse(ev.target.result);
-      if(!Array.isArray(data.entries))throw new Error();
-      if(!confirm(`Restore ${data.entries.length} entries? Merges with existing.`))return;
-      let added=0;
-      for(const e of data.entries){if(!entries.find(x=>x.id===e.id)){entries.push(e);await dbPut(e);added++;}}
-      entries.sort((a,b)=>new Date(b.addedAt)-new Date(a.addedAt));
-      filteredEntries=[...entries];
-      render();updateStats();buildFilterOptions();toast(`Restored ${added} entries ✓`);
-    }catch{toast('Invalid backup file.',true);}
-  };
-  reader.readAsText(file);inp.value='';
-}
-
-// ── Toast ─────────────────────────────────────────────────────────────────────
-function toast(msg,err=false){
-  const t=document.createElement('div');t.className='toast'+(err?' err':'');t.textContent=msg;
-  document.getElementById('toasts').appendChild(t);
-  setTimeout(()=>{t.style.opacity='0';t.style.transition='opacity 0.3s';setTimeout(()=>t.remove(),300);},3000);
-}
-
 // ══════════════════════════════════════════════════════════════════════════════
-// DOCUMENT SCANNER ENGINE
-// Live edge detection → perspective warp → CamScanner-style enhancement
+// DOCUMENT SCANNER ENGINE v2
+// - Drag-to-adjust corners (reliable on all phones)
+// - Auto-detect via contrast analysis
+// - Perspective warp (homography)
+// - CamScanner-style enhancement (color / gray / B&W)
 // ══════════════════════════════════════════════════════════════════════════════
-let scanStream=null, scanAnimFrame=null, capturedImageData=null;
-let flashOn=false, currentMode='color', detectedCorners=null;
-const SCAN_W=640, SCAN_H=480; // internal processing resolution
+let scanStream=null, flashOn=false;
+let corners=[]; // [{x,y}] in px relative to scanner-view div, order: TL TR BR BL
+let capturedSrc=null, currentMode='color';
+const CORNER_IDS=['corner-tl','corner-tr','corner-br','corner-bl'];
 
-// ── Open scanner ──────────────────────────────────────────────────────────────
+// ── Open ──────────────────────────────────────────────────────────────────────
 async function openScanner(){
   if(!hasApiKey()){showSetup();toast('Enter your API key in Settings first.',true);return}
-  const overlay=document.getElementById('scanner-overlay');
-  overlay.style.display='flex';
+  const ov=document.getElementById('scanner-overlay');
+  ov.style.display='flex';
   try{
     scanStream=await navigator.mediaDevices.getUserMedia({
-      video:{facingMode:'environment',width:{ideal:1920},height:{ideal:1080},focusMode:'continuous'}
+      video:{facingMode:'environment',width:{ideal:3840},height:{ideal:2160}}
     });
-    const video=document.getElementById('scanner-video');
-    video.srcObject=scanStream;
-    video.onloadedmetadata=()=>{video.play();startEdgeDetection();}
+    const vid=document.getElementById('scanner-video');
+    vid.srcObject=scanStream;
+    await vid.play();
+    // Wait for video to have size then init corners
+    setTimeout(()=>{initCorners();setupCornerDrag();},400);
   }catch(e){
     closeScanner();
-    // Fallback to native camera
-    toast('Live scanner unavailable — using camera.',false);
-    setTimeout(()=>document.getElementById('camerainput').click(),300);
+    toast('Camera unavailable — uploading file instead.',false);
+    setTimeout(()=>document.getElementById('fileinput').click(),300);
   }
 }
 
@@ -1100,9 +650,7 @@ function closeScanner(){
   document.getElementById('scanner-overlay').style.display='none';
   document.getElementById('crop-overlay').style.display='none';
 }
-
 function stopStream(){
-  if(scanAnimFrame){cancelAnimationFrame(scanAnimFrame);scanAnimFrame=null}
   if(scanStream){scanStream.getTracks().forEach(t=>t.stop());scanStream=null}
 }
 
@@ -1110,249 +658,199 @@ function stopStream(){
 async function toggleFlash(){
   if(!scanStream)return;
   const track=scanStream.getVideoTracks()[0];
-  try{
-    flashOn=!flashOn;
-    await track.applyConstraints({advanced:[{torch:flashOn}]});
+  try{flashOn=!flashOn;await track.applyConstraints({advanced:[{torch:flashOn}]});
     document.getElementById('flash-btn').style.color=flashOn?'#ffcc00':'#fff';
-  }catch(e){toast('Flash not available on this device.',true);flashOn=false;}
+  }catch{toast('Flash not available.',true);flashOn=false;}
 }
 
-// ── Edge detection loop ───────────────────────────────────────────────────────
-function startEdgeDetection(){
-  const video=document.getElementById('scanner-video');
-  const guide=document.getElementById('scanner-guide');
-  const offscreen=document.createElement('canvas');
-  offscreen.width=SCAN_W;offscreen.height=SCAN_H;
-  const octx=offscreen.getContext('2d');
-  let stable=0, lastCorners=null;
-
-  function detect(){
-    if(!scanStream){return}
-    if(video.readyState<2){scanAnimFrame=requestAnimationFrame(detect);return}
-
-    // Draw current frame to offscreen canvas
-    octx.drawImage(video,0,0,SCAN_W,SCAN_H);
-    const frame=octx.getImageData(0,0,SCAN_W,SCAN_H);
-
-    // Find document corners
-    const corners=findDocumentCorners(frame,SCAN_W,SCAN_H);
-
-    // Draw guide overlay
-    drawGuide(guide,corners,video.videoWidth||SCAN_W,video.videoHeight||SCAN_H);
-
-    if(corners){
-      detectedCorners=corners;
-      // Check stability
-      if(lastCorners&&cornersClose(corners,lastCorners,20)){
-        stable++;
-        if(stable>15) setStatus('✅ Document detected — tap shutter');
-        else setStatus('📐 Hold steady…');
-      } else {stable=0;}
-      lastCorners=corners;
-    } else {
-      stable=0;lastCorners=null;detectedCorners=null;
-      setStatus('🔍 Aim at a document…');
-    }
-
-    scanAnimFrame=requestAnimationFrame(detect);
-  }
-  detect();
+// ── Init corners at sensible default (80% of view, centered) ─────────────────
+function initCorners(){
+  const view=document.getElementById('scanner-view');
+  const W=view.clientWidth, H=view.clientHeight;
+  const mx=W*0.1, my=H*0.1; // 10% margin
+  corners=[
+    {x:mx,    y:my},      // TL
+    {x:W-mx,  y:my},      // TR
+    {x:W-mx,  y:H-my},    // BR
+    {x:mx,    y:H-my}     // BL
+  ];
+  renderCorners();
 }
 
-function setStatus(msg){
-  const el=document.getElementById('scan-status');
-  if(el)el.textContent=msg;
+// ── Render corner handles and SVG overlay ─────────────────────────────────────
+function renderCorners(){
+  const pts=corners.map(c=>c.x+','+c.y).join(' ');
+  document.getElementById('doc-outline').setAttribute('points',pts);
+  document.getElementById('doc-clear').setAttribute('points',pts);
+
+  // Dashed edge lines
+  const [tl,tr,br,bl]=corners;
+  setLine('edge-top',tl,tr);setLine('edge-right',tr,br);
+  setLine('edge-bottom',br,bl);setLine('edge-left',bl,tl);
+
+  // Move handle divs
+  CORNER_IDS.forEach((id,i)=>{
+    const el=document.getElementById(id);
+    el.style.left=corners[i].x+'px';
+    el.style.top=corners[i].y+'px';
+  });
+}
+function setLine(id,a,b){
+  const el=document.getElementById(id);
+  el.setAttribute('x1',a.x);el.setAttribute('y1',a.y);
+  el.setAttribute('x2',b.x);el.setAttribute('y2',b.y);
 }
 
-function cornersClose(a,b,thresh){
-  return a.every((p,i)=>Math.abs(p.x-b[i].x)<thresh&&Math.abs(p.y-b[i].y)<thresh);
-}
+// ── Drag corners ──────────────────────────────────────────────────────────────
+function setupCornerDrag(){
+  CORNER_IDS.forEach((id,i)=>{
+    const el=document.getElementById(id);
+    let dragging=false;
 
-// ── Draw guide frame on overlay canvas ───────────────────────────────────────
-function drawGuide(canvas,corners,vw,vh){
-  const rect=canvas.parentElement.getBoundingClientRect();
-  canvas.width=rect.width;canvas.height=rect.height;
-  const ctx=canvas.getContext('2d');
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  if(!corners)return;
+    const onStart=(e)=>{
+      dragging=true;
+      e.preventDefault();
+      e.stopPropagation();
+    };
+    const onMove=(e)=>{
+      if(!dragging)return;
+      e.preventDefault();
+      const view=document.getElementById('scanner-view');
+      const rect=view.getBoundingClientRect();
+      const touch=e.touches?e.touches[0]:e;
+      const x=Math.max(0,Math.min(view.clientWidth, touch.clientX-rect.left));
+      const y=Math.max(0,Math.min(view.clientHeight,touch.clientY-rect.top));
+      corners[i]={x,y};
+      renderCorners();
+    };
+    const onEnd=()=>{dragging=false;};
 
-  // Scale from processing resolution to display
-  const sx=rect.width/SCAN_W, sy=rect.height/SCAN_H;
-  const pts=corners.map(p=>({x:p.x*sx,y:p.y*sy}));
-
-  // Draw polygon
-  ctx.beginPath();
-  ctx.moveTo(pts[0].x,pts[0].y);
-  pts.slice(1).forEach(p=>ctx.lineTo(p.x,p.y));
-  ctx.closePath();
-  ctx.strokeStyle='#4cd964';ctx.lineWidth=2.5;ctx.stroke();
-  ctx.fillStyle='rgba(76,217,100,0.08)';ctx.fill();
-
-  // Corner dots
-  pts.forEach(p=>{
-    ctx.beginPath();ctx.arc(p.x,p.y,6,0,Math.PI*2);
-    ctx.fillStyle='#4cd964';ctx.fill();
+    el.addEventListener('touchstart',onStart,{passive:false});
+    el.addEventListener('touchmove',onMove,{passive:false});
+    el.addEventListener('touchend',onEnd);
+    el.addEventListener('mousedown',onStart);
+    document.addEventListener('mousemove',onMove);
+    document.addEventListener('mouseup',onEnd);
   });
 }
 
-// ── Find document corners using edge detection + contour finding ───────────────
-function findDocumentCorners(imageData,w,h){
-  const d=imageData.data;
+// ── Auto-detect document edges ────────────────────────────────────────────────
+function autoDetect(){
+  const vid=document.getElementById('scanner-video');
+  if(!vid.videoWidth){toast('Camera not ready yet.',true);return;}
+  const view=document.getElementById('scanner-view');
+  const W=view.clientWidth, H=view.clientHeight;
 
-  // 1. Convert to grayscale
-  const gray=new Uint8Array(w*h);
-  for(let i=0;i<w*h;i++){const p=i*4;gray[i]=0.299*d[p]+0.587*d[p+1]+0.114*d[p+2];}
+  // Sample frame
+  const tmp=document.createElement('canvas');
+  const SW=320, SH=Math.round(320*H/W);
+  tmp.width=SW;tmp.height=SH;
+  const ctx=tmp.getContext('2d');
+  ctx.drawImage(vid,0,0,SW,SH);
+  const px=ctx.getImageData(0,0,SW,SH).data;
 
-  // 2. Gaussian blur (3x3)
-  const blurred=gaussianBlur(gray,w,h);
+  // Convert to grayscale + find bright region (document is usually brightest)
+  const gray=new Uint8Array(SW*SH);
+  for(let i=0;i<SW*SH;i++)gray[i]=0.299*px[i*4]+0.587*px[i*4+1]+0.114*px[i*4+2];
 
-  // 3. Sobel edge detection
-  const edges=sobelEdge(blurred,w,h);
+  // Compute column and row brightness means — find document bounds
+  const colMean=new Float32Array(SW);
+  const rowMean=new Float32Array(SH);
+  for(let y=0;y<SH;y++)for(let x=0;x<SW;x++){colMean[x]+=gray[y*SW+x]/SH;rowMean[y]+=gray[y*SW+x]/SW;}
 
-  // 4. Find bounding rectangle of strong edges
-  const corners=findRectangleCorners(edges,w,h);
-  return corners;
-}
+  // Find where brightness is consistently high (document area)
+  const globalMean=gray.reduce((s,v)=>s+v,0)/(SW*SH);
+  const thresh=globalMean*0.85;
 
-function gaussianBlur(gray,w,h){
-  const k=[1,2,1,2,4,2,1,2,1]; // 3x3 Gaussian kernel (sum=16)
-  const out=new Uint8Array(w*h);
-  for(let y=1;y<h-1;y++){
-    for(let x=1;x<w-1;x++){
-      let s=0;
-      for(let ky=-1;ky<=1;ky++)for(let kx=-1;kx<=1;kx++)s+=gray[(y+ky)*w+(x+kx)]*k[(ky+1)*3+(kx+1)];
-      out[y*w+x]=s>>4;
-    }
-  }
-  return out;
-}
+  let x0=SW,x1=0,y0=SH,y1=0;
+  for(let x=5;x<SW-5;x++)if(colMean[x]>thresh){if(x<x0)x0=x;if(x>x1)x1=x;}
+  for(let y=5;y<SH-5;y++)if(rowMean[y]>thresh){if(y<y0)y0=y;if(y>y1)y1=y;}
 
-function sobelEdge(gray,w,h){
-  const out=new Uint8Array(w*h);
-  const kx=[-1,0,1,-2,0,2,-1,0,1];
-  const ky=[-1,-2,-1,0,0,0,1,2,1];
-  for(let y=1;y<h-1;y++){
-    for(let x=1;x<w-1;x++){
-      let gx=0,gy=0;
-      for(let ky2=-1;ky2<=1;ky2++)for(let kx2=-1;kx2<=1;kx2++){
-        const v=gray[(y+ky2)*w+(x+kx2)];
-        gx+=v*kx[(ky2+1)*3+(kx2+1)];
-        gy+=v*ky[(ky2+1)*3+(kx2+1)];
-      }
-      out[y*w+x]=Math.min(255,Math.sqrt(gx*gx+gy*gy));
-    }
-  }
-  return out;
-}
+  // Add small padding
+  x0=Math.max(0,x0-3);y0=Math.max(0,y0-3);
+  x1=Math.min(SW,x1+3);y1=Math.min(SH,y1+3);
 
-function findRectangleCorners(edges,w,h){
-  const threshold=40;
-  const margin=w*0.08; // ignore 8% border
-
-  // Find bounding box of strong edges, excluding borders
-  let minX=w,maxX=0,minY=h,maxY=0,count=0;
-  for(let y=margin;y<h-margin;y++){
-    for(let x=margin;x<w-margin;x++){
-      if(edges[y*w+x]>threshold){
-        if(x<minX)minX=x;if(x>maxX)maxX=x;
-        if(y<minY)minY=y;if(y>maxY)maxY=y;
-        count++;
-      }
-    }
+  // Check we found something reasonable
+  if(x1-x0<SW*0.2||y1-y0<SH*0.2){
+    toast('Could not detect edges — drag corners manually.',false);
+    return;
   }
 
-  // Need enough edge pixels and reasonable size
-  const boxW=maxX-minX, boxH=maxY-minY;
-  if(count<500||boxW<w*0.25||boxH<h*0.25)return null;
-
-  // Return as 4 corners (TL, TR, BR, BL)
-  return[
-    {x:minX,y:minY},{x:maxX,y:minY},
-    {x:maxX,y:maxY},{x:minX,y:maxY}
+  // Scale back to view coordinates
+  const sx=W/SW, sy=H/SH;
+  corners=[
+    {x:x0*sx,y:y0*sy},{x:x1*sx,y:y0*sy},
+    {x:x1*sx,y:y1*sy},{x:x0*sx,y:y1*sy}
   ];
+  renderCorners();
+  setStatus('✅ Edges detected — adjust if needed');
 }
 
-// ── Capture frame ─────────────────────────────────────────────────────────────
+function setStatus(m){const el=document.getElementById('scan-status');if(el)el.textContent=m;}
+
+// ── Capture ───────────────────────────────────────────────────────────────────
 function captureFrame(){
   const btn=document.getElementById('shutter-btn');
-  btn.style.transform='scale(0.88)';
-  setTimeout(()=>btn.style.transform='',150);
-  captureAndProcess(detectedCorners);
-}
+  btn.style.transform='scale(0.85)';setTimeout(()=>btn.style.transform='scale(1)',150);
 
-function captureManual(){
-  captureAndProcess(null);
-}
+  const vid=document.getElementById('scanner-video');
+  const view=document.getElementById('scanner-view');
 
-function captureAndProcess(corners){
-  const video=document.getElementById('scanner-video');
-
-  // Capture at full camera resolution
+  // Full-res capture
   const cap=document.createElement('canvas');
-  cap.width=video.videoWidth||1280;
-  cap.height=video.videoHeight||720;
-  const ctx=cap.getContext('2d');
-  ctx.drawImage(video,0,0,cap.width,cap.height);
+  cap.width=vid.videoWidth||1280;
+  cap.height=vid.videoHeight||720;
+  cap.getContext('2d').drawImage(vid,0,0,cap.width,cap.height);
 
-  // Scale corners from processing res to actual res
-  let scaledCorners=null;
-  if(corners){
-    const sx=cap.width/SCAN_W, sy=cap.height/SCAN_H;
-    scaledCorners=corners.map(p=>({x:p.x*sx,y:p.y*sy}));
-  }
+  // Scale corners from view-px to video-px
+  const sx=cap.width/view.clientWidth;
+  const sy=cap.height/view.clientHeight;
+  const videoCornersRaw=corners.map(c=>({x:c.x*sx,y:c.y*sy}));
 
-  // Stop live preview
-  if(scanAnimFrame){cancelAnimationFrame(scanAnimFrame);scanAnimFrame=null}
+  capturedSrc={cap,corners:videoCornersRaw};
+  stopStream();
 
-  // Perspective warp → enhancement → show review
-  const result=processCapture(cap,scaledCorners);
-  showCropReview(result);
+  // Warp + enhance + show review
+  const warped=warpPerspective(cap,videoCornersRaw);
+  showReview(warped,'color');
 }
 
-// ── Perspective correction + document enhancement ────────────────────────────
-function processCapture(srcCanvas,corners){
-  // Determine output size — use detected rectangle or full frame
-  let srcPts, outW, outH;
-  if(corners&&corners.length===4){
-    srcPts=corners; // TL, TR, BR, BL
-    // Output size proportional to detected rectangle
-    const w1=dist(srcPts[0],srcPts[1]), w2=dist(srcPts[3],srcPts[2]);
-    const h1=dist(srcPts[0],srcPts[3]), h2=dist(srcPts[1],srcPts[2]);
-    outW=Math.round(Math.max(w1,w2));
-    outH=Math.round(Math.max(h1,h2));
-  } else {
-    // No detection — use full image, A4 crop
-    outW=srcCanvas.width;
-    outH=srcCanvas.height;
-    srcPts=[{x:0,y:0},{x:outW,y:0},{x:outW,y:outH},{x:0,y:outH}];
-  }
+// ── Perspective warp (homography) ─────────────────────────────────────────────
+function warpPerspective(srcCanvas,srcCorners){
+  // Compute output dimensions from corner distances
+  const [tl,tr,br,bl]=srcCorners;
+  const wTop=Math.hypot(tr.x-tl.x,tr.y-tl.y);
+  const wBot=Math.hypot(br.x-bl.x,br.y-bl.y);
+  const hLeft=Math.hypot(bl.x-tl.x,bl.y-tl.y);
+  const hRight=Math.hypot(br.x-tr.x,br.y-tr.y);
+  let outW=Math.round(Math.max(wTop,wBot));
+  let outH=Math.round(Math.max(hLeft,hRight));
 
-  // Clamp to reasonable document size
-  const maxOut=2200;
-  if(outW>maxOut||outH>maxOut){
-    const s=maxOut/Math.max(outW,outH);
+  // Cap at 2400px on longest side
+  const maxPx=2400;
+  if(Math.max(outW,outH)>maxPx){
+    const s=maxPx/Math.max(outW,outH);
     outW=Math.round(outW*s);outH=Math.round(outH*s);
   }
+  // Ensure minimum size
+  outW=Math.max(outW,200);outH=Math.max(outH,200);
 
-  // Create output canvas
+  const dst=[{x:0,y:0},{x:outW,y:0},{x:outW,y:outH},{x:0,y:outH}];
+  const H=computeHomography(srcCorners,dst);
+  const Hinv=invertH(H);
+
   const out=document.createElement('canvas');
   out.width=outW;out.height=outH;
   const ctx=out.getContext('2d');
 
-  // Perspective warp using homography
-  const dstPts=[{x:0,y:0},{x:outW,y:0},{x:outW,y:outH},{x:0,y:outH}];
-  const H=computeHomography(srcPts,dstPts);
-
-  // Sample source pixels using inverse homography
   const srcCtx=srcCanvas.getContext('2d');
   const srcData=srcCtx.getImageData(0,0,srcCanvas.width,srcCanvas.height);
   const outData=ctx.createImageData(outW,outH);
-  const Hinv=invertMatrix3(H);
 
   for(let y=0;y<outH;y++){
     for(let x=0;x<outW;x++){
-      const src=applyHomography(Hinv,x,y);
-      const sx=Math.round(src.x), sy=Math.round(src.y);
+      const p=applyH(Hinv,x,y);
+      const sx=Math.round(p.x), sy=Math.round(p.y);
       const oi=(y*outW+x)*4;
       if(sx>=0&&sx<srcCanvas.width&&sy>=0&&sy<srcCanvas.height){
         const si=(sy*srcCanvas.width+sx)*4;
@@ -1360,154 +858,143 @@ function processCapture(srcCanvas,corners){
         outData.data[oi+1]=srcData.data[si+1];
         outData.data[oi+2]=srcData.data[si+2];
         outData.data[oi+3]=255;
-      } else {outData.data[oi+3]=0;}
+      }else{outData.data[oi]=outData.data[oi+1]=outData.data[oi+2]=255;outData.data[oi+3]=255;}
     }
   }
   ctx.putImageData(outData,0,0);
-
-  capturedImageData={canvas:out,mode:'color'};
   return out;
 }
 
-function dist(a,b){return Math.sqrt((b.x-a.x)**2+(b.y-a.y)**2)}
-
-// ── Homography computation (4-point perspective transform) ────────────────────
 function computeHomography(src,dst){
-  // Build 8x8 matrix A and vector b
-  const A=[];const bv=[];
+  const A=[],b=[];
   for(let i=0;i<4;i++){
-    const sx=src[i].x,sy=src[i].y,dx=dst[i].x,dy=dst[i].y;
-    A.push([sx,sy,1,0,0,0,-dx*sx,-dx*sy]);bv.push(dx);
-    A.push([0,0,0,sx,sy,1,-dy*sx,-dy*sy]);bv.push(dy);
+    const[sx,sy,dx,dy]=[src[i].x,src[i].y,dst[i].x,dst[i].y];
+    A.push([sx,sy,1,0,0,0,-dx*sx,-dx*sy]);b.push(dx);
+    A.push([0,0,0,sx,sy,1,-dy*sx,-dy*sy]);b.push(dy);
   }
-  const h=solveLinear8(A,bv);
+  const h=gaussElim(A,b);
   return[[h[0],h[1],h[2]],[h[3],h[4],h[5]],[h[6],h[7],1]];
 }
-
-function applyHomography(H,x,y){
+function applyH(H,x,y){
   const w=H[2][0]*x+H[2][1]*y+H[2][2];
-  return{x:(H[0][0]*x+H[0][1]*y+H[0][2])/w, y:(H[1][0]*x+H[1][1]*y+H[1][2])/w};
+  return{x:(H[0][0]*x+H[0][1]*y+H[0][2])/w,y:(H[1][0]*x+H[1][1]*y+H[1][2])/w};
 }
-
-// Gaussian elimination to solve 8x8 linear system
-function solveLinear8(A,b){
-  const n=8;
-  const M=A.map((row,i)=>[...row,b[i]]);
-  for(let col=0;col<n;col++){
-    let pivot=col;
-    for(let r=col+1;r<n;r++)if(Math.abs(M[r][col])>Math.abs(M[pivot][col]))pivot=r;
-    [M[col],M[pivot]]=[M[pivot],M[col]];
-    const div=M[col][col];
-    for(let j=col;j<=n;j++)M[col][j]/=div;
-    for(let r=0;r<n;r++){
-      if(r===col)continue;
-      const f=M[r][col];
-      for(let j=col;j<=n;j++)M[r][j]-=f*M[col][j];
-    }
+function gaussElim(A,b){
+  const n=8,M=A.map((r,i)=>[...r,b[i]]);
+  for(let c=0;c<n;c++){
+    let p=c;for(let r=c+1;r<n;r++)if(Math.abs(M[r][c])>Math.abs(M[p][c]))p=r;
+    [M[c],M[p]]=[M[p],M[c]];
+    const d=M[c][c];for(let j=c;j<=n;j++)M[c][j]/=d;
+    for(let r=0;r<n;r++){if(r===c)continue;const f=M[r][c];for(let j=c;j<=n;j++)M[r][j]-=f*M[c][j];}
   }
-  return M.map(row=>row[n]);
+  return M.map(r=>r[n]);
 }
-
-function invertMatrix3(m){
-  const a=m[0],b2=m[1],c=m[2];
+function invertH(m){
+  const[a,b2,c]=[m[0],m[1],m[2]];
   const det=a[0]*(b2[1]*c[2]-b2[2]*c[1])-a[1]*(b2[0]*c[2]-b2[2]*c[0])+a[2]*(b2[0]*c[1]-b2[1]*c[0]);
-  const inv=1/det;
+  const i=1/det;
   return[
-    [(b2[1]*c[2]-b2[2]*c[1])*inv,(a[2]*c[1]-a[1]*c[2])*inv,(a[1]*b2[2]-a[2]*b2[1])*inv],
-    [(b2[2]*c[0]-b2[0]*c[2])*inv,(a[0]*c[2]-a[2]*c[0])*inv,(a[2]*b2[0]-a[0]*b2[2])*inv],
-    [(b2[0]*c[1]-b2[1]*c[0])*inv,(a[1]*c[0]-a[0]*c[1])*inv,(a[0]*b2[1]-a[1]*b2[0])*inv]
+    [(b2[1]*c[2]-b2[2]*c[1])*i,(a[2]*c[1]-a[1]*c[2])*i,(a[1]*b2[2]-a[2]*b2[1])*i],
+    [(b2[2]*c[0]-b2[0]*c[2])*i,(a[0]*c[2]-a[2]*c[0])*i,(a[2]*b2[0]-a[0]*b2[2])*i],
+    [(b2[0]*c[1]-b2[1]*c[0])*i,(a[1]*c[0]-a[0]*c[1])*i,(a[0]*b2[1]-a[1]*b2[0])*i]
   ];
 }
 
-// ── Show crop review ──────────────────────────────────────────────────────────
-function showCropReview(srcCanvas){
+// ── Show review screen ────────────────────────────────────────────────────────
+function showReview(warpedCanvas,mode){
   document.getElementById('scanner-overlay').style.display='none';
-  const overlay=document.getElementById('crop-overlay');
-  overlay.style.display='flex';
-  applyEnhancement(srcCanvas,'color');
+  const ov=document.getElementById('crop-overlay');
+  ov.style.display='flex';
+  capturedSrc.warped=warpedCanvas;
+  applyScanEnhancement(warpedCanvas,mode);
 }
 
 function setScanMode(mode){
   currentMode=mode;
   ['color','gray','bw'].forEach(m=>document.getElementById('mode-'+m).classList.toggle('active',m===mode));
-  if(capturedImageData)applyEnhancement(capturedImageData.canvas,mode);
+  if(capturedSrc&&capturedSrc.warped)applyScanEnhancement(capturedSrc.warped,mode);
 }
 
-// ── Document enhancement — CamScanner style ───────────────────────────────────
-function applyEnhancement(srcCanvas,mode){
-  const preview=document.getElementById('crop-canvas');
-  preview.width=srcCanvas.width;preview.height=srcCanvas.height;
-  const ctx=preview.getContext('2d');
-  ctx.drawImage(srcCanvas,0,0);
+// ── CamScanner-style enhancement ──────────────────────────────────────────────
+function applyScanEnhancement(src,mode){
+  const cv=document.getElementById('crop-canvas');
+  cv.width=src.width;cv.height=src.height;
+  const ctx=cv.getContext('2d');
+  ctx.drawImage(src,0,0);
 
-  const imgData=ctx.getImageData(0,0,preview.width,preview.height);
-  const d=imgData.data;
-  const len=d.length;
+  const img=ctx.getImageData(0,0,cv.width,cv.height);
+  const d=img.data, len=d.length;
 
-  // Sample brightness statistics (for auto-levels)
-  let minR=255,maxR=0,minG=255,maxG=0,minB=255,maxB=0;
-  for(let i=0;i<len;i+=4){
-    if(d[i]<minR)minR=d[i];if(d[i]>maxR)maxR=d[i];
-    if(d[i+1]<minG)minG=d[i+1];if(d[i+1]>maxG)maxG=d[i+1];
-    if(d[i+2]<minB)minB=d[i+2];if(d[i+2]>maxB)maxB=d[i+2];
+  // Step 1: Sample image statistics for auto-levels
+  // Use percentile-based approach (ignore top/bottom 2% outliers)
+  const sample=[];
+  const step=Math.max(1,Math.floor(len/4/4000)); // sample ~4000 pixels
+  for(let i=0;i<len;i+=4*step){
+    sample.push(0.299*d[i]+0.587*d[i+1]+0.114*d[i+2]);
   }
+  sample.sort((a,b)=>a-b);
+  const lo=sample[Math.floor(sample.length*0.02)]||0;
+  const hi=sample[Math.floor(sample.length*0.98)]||255;
+  const range=hi-lo||1;
 
   for(let i=0;i<len;i+=4){
     if(mode==='color'){
-      // Per-channel auto-levels + slight warmth boost
-      d[i]=clamp(((d[i]-minR)/(maxR-minR||1))*255*1.05);
-      d[i+1]=clamp(((d[i+1]-minG)/(maxG-minG||1))*255);
-      d[i+2]=clamp(((d[i+2]-minB)/(maxB-minB||1))*255*0.97);
-      // Contrast S-curve
-      d[i]=sCurve(d[i]);d[i+1]=sCurve(d[i+1]);d[i+2]=sCurve(d[i+2]);
-    } else if(mode==='gray'){
-      const g=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];
-      const minL=0.299*minR+0.587*minG+0.114*minB;
-      const maxL=0.299*maxR+0.587*maxG+0.114*maxB;
-      const stretched=clamp(((g-minL)/(maxL-minL||1))*255);
-      const enhanced=sCurve(stretched);
-      d[i]=d[i+1]=d[i+2]=enhanced;
-    } else { // bw — strong threshold for clean document scan
-      const g=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];
-      const minL=0.299*minR+0.587*minG+0.114*minB;
-      const maxL=0.299*maxR+0.587*maxG+0.114*maxB;
-      const stretched=((g-minL)/(maxL-minL||1))*255;
-      // Adaptive threshold — paper → white, ink → black
-      const v=stretched>145?255:stretched<100?0:stretched>130?220:40;
-      d[i]=d[i+1]=d[i+2]=v;
+      // Per-channel stretch + warm S-curve
+      for(let c=0;c<3;c++){
+        const stretched=((d[i+c]-lo)/range)*255;
+        d[i+c]=clamp(sCurve(stretched,1.4));
+      }
+    }else{
+      const gray=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];
+      const stretched=((gray-lo)/range)*255;
+
+      if(mode==='gray'){
+        const v=clamp(sCurve(stretched,1.6));
+        d[i]=d[i+1]=d[i+2]=v;
+      }else{
+        // B&W: clean adaptive threshold
+        // Strong contrast: anything above ~50% → white, below → black
+        const v=stretched>138?255:stretched<100?0:stretched>128?230:20;
+        d[i]=d[i+1]=d[i+2]=v;
+      }
     }
   }
-  ctx.putImageData(imgData,0,0);
+  ctx.putImageData(img,0,0);
 
-  // Sharpening pass for all modes
-  sharpenCanvas(preview,ctx,mode==='bw'?1.8:0.8);
+  // Step 2: Sharpening
+  applySharpening(cv,ctx,mode==='bw'?2.0:mode==='gray'?1.2:0.7);
 
-  capturedImageData={canvas:srcCanvas,mode,enhanced:preview.toDataURL('image/jpeg',0.93)};
+  // Store final result
+  capturedSrc.finalDataUrl=cv.toDataURL('image/jpeg',0.93);
 }
 
-function sCurve(v){
-  // Mild S-curve: darks darker, lights lighter, no inversion
+// Smooth S-curve — strength controls how aggressive
+function sCurve(v,strength=1.4){
   const n=v/255;
-  const out=n<0.5?2*n*n:1-2*(1-n)*(1-n);
-  // Blend — 60% S-curve, 40% linear
-  return clamp(Math.round((out*0.6+n*0.4)*255));
+  // Bezier-based S-curve
+  const curved=n<0.5
+    ?0.5*Math.pow(2*n,strength)
+    :1-0.5*Math.pow(2*(1-n),strength);
+  return Math.round(curved*255);
 }
-
 function clamp(v){return Math.max(0,Math.min(255,Math.round(v)))}
 
-function sharpenCanvas(canvas,ctx,strength=1){
+function applySharpening(canvas,ctx,strength){
+  if(strength<0.1)return;
   const d=ctx.getImageData(0,0,canvas.width,canvas.height);
   const src=new Uint8ClampedArray(d.data);
   const w=canvas.width,h=canvas.height;
   const s=strength;
+  // Unsharp mask kernel
   const k=[0,-s,0,-s,1+4*s,-s,0,-s,0];
   for(let y=1;y<h-1;y++){
     for(let x=1;x<w-1;x++){
-      const idx=(y*w+x)*4;
+      const base=(y*w+x)*4;
       for(let c=0;c<3;c++){
         let v=0;
-        for(let ky=-1;ky<=1;ky++)for(let kx=-1;kx<=1;kx++)v+=src[((y+ky)*w+(x+kx))*4+c]*k[(ky+1)*3+(kx+1)];
-        d.data[idx+c]=clamp(v);
+        for(let ky=-1;ky<=1;ky++)for(let kx=-1;kx<=1;kx++)
+          v+=src[((y+ky)*w+(x+kx))*4+c]*k[(ky+1)*3+(kx+1)];
+        d.data[base+c]=clamp(v);
       }
     }
   }
@@ -1516,22 +1003,19 @@ function sharpenCanvas(canvas,ctx,strength=1){
 
 // ── Confirm / retake ──────────────────────────────────────────────────────────
 async function confirmScan(){
-  if(!capturedImageData)return;
-  const dataUrl=capturedImageData.enhanced||document.getElementById('crop-canvas').toDataURL('image/jpeg',0.93);
+  if(!capturedSrc||!capturedSrc.finalDataUrl){toast('No scan to use.',true);return;}
   document.getElementById('crop-overlay').style.display='none';
-  stopStream();
-  pendingDoc={dataUrl,mime:'image/jpeg',name:'scan-'+Date.now()+'.jpg'};
-  await extractAI(dataUrl,'image/jpeg');
+  pendingDoc={dataUrl:capturedSrc.finalDataUrl,mime:'image/jpeg',name:'scan-'+Date.now()+'.jpg'};
+  await extractAI(capturedSrc.finalDataUrl,'image/jpeg');
 }
 
 function retakeScan(){
   document.getElementById('crop-overlay').style.display='none';
-  document.getElementById('scanner-overlay').style.display='flex';
-  startEdgeDetection();
+  capturedSrc=null;
+  openScanner();
 }
-
 // ── END SCANNER ENGINE ────────────────────────────────────────────────────────
-
+</script>
 // ── PWA Manifest ──────────────────────────────────────────────────────────────
 const mf={name:"CNS Invoice Ledger",short_name:"CNS",start_url:".",display:"standalone",background_color:"#ffffff",theme_color:"#ffffff",icons:[{src:"data:image/svg+xml,"+encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect width='192' height='192' rx='40' fill='white'/><rect x='8' y='8' width='68' height='68' rx='14' fill='%238dc63f'/><rect x='34' y='34' width='60' height='60' rx='13' fill='%23008751'/><rect x='34' y='54' width='70' height='70' rx='14' fill='%2300adef'/><rect x='58' y='8' width='38' height='38' rx='10' fill='%23ed1c24'/><text x='106' y='152' font-family='Arial Black,Helvetica,sans-serif' font-weight='900' font-size='72' fill='%23231f20' text-anchor='middle' letter-spacing='-2'>CNS</text></svg>`),sizes:"192x192",type:"image/svg+xml"},{src:"data:image/svg+xml,"+encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='100' fill='white'/><rect x='20' y='20' width='180' height='180' rx='36' fill='%238dc63f'/><rect x='90' y='90' width='160' height='160' rx='32' fill='%23008751'/><rect x='90' y='144' width='186' height='186' rx='36' fill='%2300adef'/><rect x='154' y='20' width='100' height='100' rx='26' fill='%23ed1c24'/><text x='280' y='400' font-family='Arial Black,Helvetica,sans-serif' font-weight='900' font-size='190' fill='%23231f20' text-anchor='middle' letter-spacing='-5'>CNS</text></svg>`),sizes:"512x512",type:"image/svg+xml"}]};
 const mb=new Blob([JSON.stringify(mf)],{type:'application/json'});
