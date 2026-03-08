@@ -327,10 +327,10 @@ html,body{height:100%;overflow-x:hidden;font-family:'Inter',system-ui,sans-serif
 
     <!-- SCAN BUTTONS -->
     <div class="scan-row">
-      <div class="scan-card cam" onclick="triggerCamera()">
+      <div class="scan-card cam" onclick="openScanner()">
         <div class="scan-icon">📷</div>
         <div class="scan-label">Camera Scan</div>
-        <div class="scan-hint">Auto-enhances photo to clean scan</div>
+        <div class="scan-hint">Live edge detection · auto-crop · perspective fix</div>
       </div>
       <div class="scan-card fil" onclick="triggerUpload()">
         <div class="scan-icon">📄</div>
@@ -523,7 +523,70 @@ html,body{height:100%;overflow-x:hidden;font-family:'Inter',system-ui,sans-serif
   </div>
 </div>
 
+<!-- ══ DOCUMENT SCANNER ══════════════════════════════════════════════════════ -->
+<div id="scanner-overlay" style="display:none;position:fixed;inset:0;z-index:2000;background:#000;flex-direction:column">
+
+  <!-- Live viewfinder -->
+  <div style="position:relative;flex:1;overflow:hidden" id="scanner-view">
+    <video id="scanner-video" autoplay playsinline muted
+      style="width:100%;height:100%;object-fit:cover;display:block"></video>
+
+    <!-- Overlay canvas for edge guide lines -->
+    <canvas id="scanner-guide" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none"></canvas>
+
+    <!-- Corner guide frame -->
+    <div id="doc-frame" style="position:absolute;border:2px solid rgba(255,255,255,0.25);display:none;pointer-events:none;transition:all 0.1s ease;box-shadow:0 0 0 2000px rgba(0,0,0,0.35)">
+      <div style="position:absolute;top:-2px;left:-2px;width:24px;height:24px;border-top:3px solid #4cd964;border-left:3px solid #4cd964;border-radius:3px 0 0 0"></div>
+      <div style="position:absolute;top:-2px;right:-2px;width:24px;height:24px;border-top:3px solid #4cd964;border-right:3px solid #4cd964;border-radius:0 3px 0 0"></div>
+      <div style="position:absolute;bottom:-2px;left:-2px;width:24px;height:24px;border-bottom:3px solid #4cd964;border-left:3px solid #4cd964;border-radius:0 0 0 3px"></div>
+      <div style="position:absolute;bottom:-2px;right:-2px;width:24px;height:24px;border-bottom:3px solid #4cd964;border-right:3px solid #4cd964;border-radius:0 0 3px 0"></div>
+    </div>
+
+    <!-- Status pill -->
+    <div id="scan-status" style="position:absolute;top:calc(env(safe-area-inset-top,44px)+12px);left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.6);backdrop-filter:blur(8px);color:#fff;font-size:0.78rem;font-family:'Inter',sans-serif;padding:0.4rem 1rem;border-radius:20px;white-space:nowrap;letter-spacing:0.02em">
+      🔍 Looking for document…
+    </div>
+
+    <!-- Flash toggle -->
+    <button id="flash-btn" onclick="toggleFlash()" style="position:absolute;top:calc(env(safe-area-inset-top,44px)+10px);right:1rem;background:rgba(0,0,0,0.5);border:none;color:#fff;font-size:1.3rem;width:42px;height:42px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center">⚡</button>
+  </div>
+
+  <!-- Bottom controls -->
+  <div style="background:#111;padding:1.2rem 2rem calc(env(safe-area-inset-bottom,0px)+1.2rem);display:flex;align-items:center;justify-content:space-between;gap:1rem">
+
+    <button onclick="closeScanner()" style="background:rgba(255,255,255,0.12);border:none;color:#fff;font-size:0.82rem;font-family:'Inter',sans-serif;padding:0.6rem 1.2rem;border-radius:20px;cursor:pointer">Cancel</button>
+
+    <!-- Shutter button -->
+    <button id="shutter-btn" onclick="captureFrame()" style="width:72px;height:72px;border-radius:50%;background:#fff;border:4px solid rgba(255,255,255,0.4);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.8rem;box-shadow:0 0 0 6px rgba(255,255,255,0.15);transition:transform 0.1s">📸</button>
+
+    <!-- Manual crop fallback -->
+    <button onclick="captureManual()" style="background:rgba(255,255,255,0.12);border:none;color:#fff;font-size:0.82rem;font-family:'Inter',sans-serif;padding:0.6rem 1.2rem;border-radius:20px;cursor:pointer">Manual</button>
+  </div>
+</div>
+
+<!-- Crop review screen (shown after capture) -->
+<div id="crop-overlay" style="display:none;position:fixed;inset:0;z-index:2100;background:#000;flex-direction:column;align-items:center">
+  <div style="padding:calc(env(safe-area-inset-top,44px)+12px) 1rem 0.75rem;display:flex;align-items:center;justify-content:space-between;width:100%;background:#111">
+    <button onclick="retakeScan()" style="background:none;border:none;color:#fff;font-size:0.9rem;font-family:'Inter',sans-serif;padding:0.4rem 0.6rem;cursor:pointer">↩ Retake</button>
+    <span style="color:#fff;font-size:0.9rem;font-weight:600;font-family:'Inter',sans-serif">Review Scan</span>
+    <button onclick="confirmScan()" style="background:#4cd964;border:none;color:#000;font-size:0.9rem;font-weight:700;font-family:'Inter',sans-serif;padding:0.45rem 1rem;border-radius:12px;cursor:pointer">Use ✓</button>
+  </div>
+  <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:1rem;width:100%;overflow:hidden">
+    <canvas id="crop-canvas" style="max-width:100%;max-height:100%;border-radius:8px;box-shadow:0 4px 32px rgba(0,0,0,0.6)"></canvas>
+  </div>
+  <div style="padding:0.75rem 1rem calc(env(safe-area-inset-bottom,0px)+0.75rem);display:flex;gap:0.6rem;justify-content:center;background:#111;width:100%">
+    <button onclick="setScanMode('color')" id="mode-color" class="scan-mode-btn active">🎨 Color</button>
+    <button onclick="setScanMode('gray')" id="mode-gray" class="scan-mode-btn">🔲 Grayscale</button>
+    <button onclick="setScanMode('bw')" id="mode-bw" class="scan-mode-btn">📄 B&amp;W</button>
+  </div>
+</div>
+
 <div id="toasts"></div>
+
+<style>
+.scan-mode-btn{background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;font-size:0.78rem;font-family:'Inter',sans-serif;padding:0.45rem 0.9rem;border-radius:20px;cursor:pointer;transition:all 0.15s}
+.scan-mode-btn.active{background:#fff;color:#000;border-color:#fff}
+</style>
 
 <script>
 // ── PASSWORD ──────────────────────────────────────────────────────────────────
@@ -614,7 +677,7 @@ function triggerUpload(){
 }
 function triggerCamera(){
   if(!hasApiKey()){showSetup();toast('Enter your API key in Settings first.',true);return}
-  document.getElementById('camerainput').click();
+  openScanner();
 }
 function handleFile(inp){if(inp.files[0])processFile(inp.files[0]);inp.value=''}
 function doDrag(e,on){e.preventDefault()}
@@ -1003,6 +1066,471 @@ function toast(msg,err=false){
   document.getElementById('toasts').appendChild(t);
   setTimeout(()=>{t.style.opacity='0';t.style.transition='opacity 0.3s';setTimeout(()=>t.remove(),300);},3000);
 }
+
+// ══════════════════════════════════════════════════════════════════════════════
+// DOCUMENT SCANNER ENGINE
+// Live edge detection → perspective warp → CamScanner-style enhancement
+// ══════════════════════════════════════════════════════════════════════════════
+let scanStream=null, scanAnimFrame=null, capturedImageData=null;
+let flashOn=false, currentMode='color', detectedCorners=null;
+const SCAN_W=640, SCAN_H=480; // internal processing resolution
+
+// ── Open scanner ──────────────────────────────────────────────────────────────
+async function openScanner(){
+  if(!hasApiKey()){showSetup();toast('Enter your API key in Settings first.',true);return}
+  const overlay=document.getElementById('scanner-overlay');
+  overlay.style.display='flex';
+  try{
+    scanStream=await navigator.mediaDevices.getUserMedia({
+      video:{facingMode:'environment',width:{ideal:1920},height:{ideal:1080},focusMode:'continuous'}
+    });
+    const video=document.getElementById('scanner-video');
+    video.srcObject=scanStream;
+    video.onloadedmetadata=()=>{video.play();startEdgeDetection();}
+  }catch(e){
+    closeScanner();
+    // Fallback to native camera
+    toast('Live scanner unavailable — using camera.',false);
+    setTimeout(()=>document.getElementById('camerainput').click(),300);
+  }
+}
+
+function closeScanner(){
+  stopStream();
+  document.getElementById('scanner-overlay').style.display='none';
+  document.getElementById('crop-overlay').style.display='none';
+}
+
+function stopStream(){
+  if(scanAnimFrame){cancelAnimationFrame(scanAnimFrame);scanAnimFrame=null}
+  if(scanStream){scanStream.getTracks().forEach(t=>t.stop());scanStream=null}
+}
+
+// ── Flash ─────────────────────────────────────────────────────────────────────
+async function toggleFlash(){
+  if(!scanStream)return;
+  const track=scanStream.getVideoTracks()[0];
+  try{
+    flashOn=!flashOn;
+    await track.applyConstraints({advanced:[{torch:flashOn}]});
+    document.getElementById('flash-btn').style.color=flashOn?'#ffcc00':'#fff';
+  }catch(e){toast('Flash not available on this device.',true);flashOn=false;}
+}
+
+// ── Edge detection loop ───────────────────────────────────────────────────────
+function startEdgeDetection(){
+  const video=document.getElementById('scanner-video');
+  const guide=document.getElementById('scanner-guide');
+  const offscreen=document.createElement('canvas');
+  offscreen.width=SCAN_W;offscreen.height=SCAN_H;
+  const octx=offscreen.getContext('2d');
+  let stable=0, lastCorners=null;
+
+  function detect(){
+    if(!scanStream){return}
+    if(video.readyState<2){scanAnimFrame=requestAnimationFrame(detect);return}
+
+    // Draw current frame to offscreen canvas
+    octx.drawImage(video,0,0,SCAN_W,SCAN_H);
+    const frame=octx.getImageData(0,0,SCAN_W,SCAN_H);
+
+    // Find document corners
+    const corners=findDocumentCorners(frame,SCAN_W,SCAN_H);
+
+    // Draw guide overlay
+    drawGuide(guide,corners,video.videoWidth||SCAN_W,video.videoHeight||SCAN_H);
+
+    if(corners){
+      detectedCorners=corners;
+      // Check stability
+      if(lastCorners&&cornersClose(corners,lastCorners,20)){
+        stable++;
+        if(stable>15) setStatus('✅ Document detected — tap shutter');
+        else setStatus('📐 Hold steady…');
+      } else {stable=0;}
+      lastCorners=corners;
+    } else {
+      stable=0;lastCorners=null;detectedCorners=null;
+      setStatus('🔍 Aim at a document…');
+    }
+
+    scanAnimFrame=requestAnimationFrame(detect);
+  }
+  detect();
+}
+
+function setStatus(msg){
+  const el=document.getElementById('scan-status');
+  if(el)el.textContent=msg;
+}
+
+function cornersClose(a,b,thresh){
+  return a.every((p,i)=>Math.abs(p.x-b[i].x)<thresh&&Math.abs(p.y-b[i].y)<thresh);
+}
+
+// ── Draw guide frame on overlay canvas ───────────────────────────────────────
+function drawGuide(canvas,corners,vw,vh){
+  const rect=canvas.parentElement.getBoundingClientRect();
+  canvas.width=rect.width;canvas.height=rect.height;
+  const ctx=canvas.getContext('2d');
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  if(!corners)return;
+
+  // Scale from processing resolution to display
+  const sx=rect.width/SCAN_W, sy=rect.height/SCAN_H;
+  const pts=corners.map(p=>({x:p.x*sx,y:p.y*sy}));
+
+  // Draw polygon
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x,pts[0].y);
+  pts.slice(1).forEach(p=>ctx.lineTo(p.x,p.y));
+  ctx.closePath();
+  ctx.strokeStyle='#4cd964';ctx.lineWidth=2.5;ctx.stroke();
+  ctx.fillStyle='rgba(76,217,100,0.08)';ctx.fill();
+
+  // Corner dots
+  pts.forEach(p=>{
+    ctx.beginPath();ctx.arc(p.x,p.y,6,0,Math.PI*2);
+    ctx.fillStyle='#4cd964';ctx.fill();
+  });
+}
+
+// ── Find document corners using edge detection + contour finding ───────────────
+function findDocumentCorners(imageData,w,h){
+  const d=imageData.data;
+
+  // 1. Convert to grayscale
+  const gray=new Uint8Array(w*h);
+  for(let i=0;i<w*h;i++){const p=i*4;gray[i]=0.299*d[p]+0.587*d[p+1]+0.114*d[p+2];}
+
+  // 2. Gaussian blur (3x3)
+  const blurred=gaussianBlur(gray,w,h);
+
+  // 3. Sobel edge detection
+  const edges=sobelEdge(blurred,w,h);
+
+  // 4. Find bounding rectangle of strong edges
+  const corners=findRectangleCorners(edges,w,h);
+  return corners;
+}
+
+function gaussianBlur(gray,w,h){
+  const k=[1,2,1,2,4,2,1,2,1]; // 3x3 Gaussian kernel (sum=16)
+  const out=new Uint8Array(w*h);
+  for(let y=1;y<h-1;y++){
+    for(let x=1;x<w-1;x++){
+      let s=0;
+      for(let ky=-1;ky<=1;ky++)for(let kx=-1;kx<=1;kx++)s+=gray[(y+ky)*w+(x+kx)]*k[(ky+1)*3+(kx+1)];
+      out[y*w+x]=s>>4;
+    }
+  }
+  return out;
+}
+
+function sobelEdge(gray,w,h){
+  const out=new Uint8Array(w*h);
+  const kx=[-1,0,1,-2,0,2,-1,0,1];
+  const ky=[-1,-2,-1,0,0,0,1,2,1];
+  for(let y=1;y<h-1;y++){
+    for(let x=1;x<w-1;x++){
+      let gx=0,gy=0;
+      for(let ky2=-1;ky2<=1;ky2++)for(let kx2=-1;kx2<=1;kx2++){
+        const v=gray[(y+ky2)*w+(x+kx2)];
+        gx+=v*kx[(ky2+1)*3+(kx2+1)];
+        gy+=v*ky[(ky2+1)*3+(kx2+1)];
+      }
+      out[y*w+x]=Math.min(255,Math.sqrt(gx*gx+gy*gy));
+    }
+  }
+  return out;
+}
+
+function findRectangleCorners(edges,w,h){
+  const threshold=40;
+  const margin=w*0.08; // ignore 8% border
+
+  // Find bounding box of strong edges, excluding borders
+  let minX=w,maxX=0,minY=h,maxY=0,count=0;
+  for(let y=margin;y<h-margin;y++){
+    for(let x=margin;x<w-margin;x++){
+      if(edges[y*w+x]>threshold){
+        if(x<minX)minX=x;if(x>maxX)maxX=x;
+        if(y<minY)minY=y;if(y>maxY)maxY=y;
+        count++;
+      }
+    }
+  }
+
+  // Need enough edge pixels and reasonable size
+  const boxW=maxX-minX, boxH=maxY-minY;
+  if(count<500||boxW<w*0.25||boxH<h*0.25)return null;
+
+  // Return as 4 corners (TL, TR, BR, BL)
+  return[
+    {x:minX,y:minY},{x:maxX,y:minY},
+    {x:maxX,y:maxY},{x:minX,y:maxY}
+  ];
+}
+
+// ── Capture frame ─────────────────────────────────────────────────────────────
+function captureFrame(){
+  const btn=document.getElementById('shutter-btn');
+  btn.style.transform='scale(0.88)';
+  setTimeout(()=>btn.style.transform='',150);
+  captureAndProcess(detectedCorners);
+}
+
+function captureManual(){
+  captureAndProcess(null);
+}
+
+function captureAndProcess(corners){
+  const video=document.getElementById('scanner-video');
+
+  // Capture at full camera resolution
+  const cap=document.createElement('canvas');
+  cap.width=video.videoWidth||1280;
+  cap.height=video.videoHeight||720;
+  const ctx=cap.getContext('2d');
+  ctx.drawImage(video,0,0,cap.width,cap.height);
+
+  // Scale corners from processing res to actual res
+  let scaledCorners=null;
+  if(corners){
+    const sx=cap.width/SCAN_W, sy=cap.height/SCAN_H;
+    scaledCorners=corners.map(p=>({x:p.x*sx,y:p.y*sy}));
+  }
+
+  // Stop live preview
+  if(scanAnimFrame){cancelAnimationFrame(scanAnimFrame);scanAnimFrame=null}
+
+  // Perspective warp → enhancement → show review
+  const result=processCapture(cap,scaledCorners);
+  showCropReview(result);
+}
+
+// ── Perspective correction + document enhancement ────────────────────────────
+function processCapture(srcCanvas,corners){
+  // Determine output size — use detected rectangle or full frame
+  let srcPts, outW, outH;
+  if(corners&&corners.length===4){
+    srcPts=corners; // TL, TR, BR, BL
+    // Output size proportional to detected rectangle
+    const w1=dist(srcPts[0],srcPts[1]), w2=dist(srcPts[3],srcPts[2]);
+    const h1=dist(srcPts[0],srcPts[3]), h2=dist(srcPts[1],srcPts[2]);
+    outW=Math.round(Math.max(w1,w2));
+    outH=Math.round(Math.max(h1,h2));
+  } else {
+    // No detection — use full image, A4 crop
+    outW=srcCanvas.width;
+    outH=srcCanvas.height;
+    srcPts=[{x:0,y:0},{x:outW,y:0},{x:outW,y:outH},{x:0,y:outH}];
+  }
+
+  // Clamp to reasonable document size
+  const maxOut=2200;
+  if(outW>maxOut||outH>maxOut){
+    const s=maxOut/Math.max(outW,outH);
+    outW=Math.round(outW*s);outH=Math.round(outH*s);
+  }
+
+  // Create output canvas
+  const out=document.createElement('canvas');
+  out.width=outW;out.height=outH;
+  const ctx=out.getContext('2d');
+
+  // Perspective warp using homography
+  const dstPts=[{x:0,y:0},{x:outW,y:0},{x:outW,y:outH},{x:0,y:outH}];
+  const H=computeHomography(srcPts,dstPts);
+
+  // Sample source pixels using inverse homography
+  const srcCtx=srcCanvas.getContext('2d');
+  const srcData=srcCtx.getImageData(0,0,srcCanvas.width,srcCanvas.height);
+  const outData=ctx.createImageData(outW,outH);
+  const Hinv=invertMatrix3(H);
+
+  for(let y=0;y<outH;y++){
+    for(let x=0;x<outW;x++){
+      const src=applyHomography(Hinv,x,y);
+      const sx=Math.round(src.x), sy=Math.round(src.y);
+      const oi=(y*outW+x)*4;
+      if(sx>=0&&sx<srcCanvas.width&&sy>=0&&sy<srcCanvas.height){
+        const si=(sy*srcCanvas.width+sx)*4;
+        outData.data[oi]=srcData.data[si];
+        outData.data[oi+1]=srcData.data[si+1];
+        outData.data[oi+2]=srcData.data[si+2];
+        outData.data[oi+3]=255;
+      } else {outData.data[oi+3]=0;}
+    }
+  }
+  ctx.putImageData(outData,0,0);
+
+  capturedImageData={canvas:out,mode:'color'};
+  return out;
+}
+
+function dist(a,b){return Math.sqrt((b.x-a.x)**2+(b.y-a.y)**2)}
+
+// ── Homography computation (4-point perspective transform) ────────────────────
+function computeHomography(src,dst){
+  // Build 8x8 matrix A and vector b
+  const A=[];const bv=[];
+  for(let i=0;i<4;i++){
+    const sx=src[i].x,sy=src[i].y,dx=dst[i].x,dy=dst[i].y;
+    A.push([sx,sy,1,0,0,0,-dx*sx,-dx*sy]);bv.push(dx);
+    A.push([0,0,0,sx,sy,1,-dy*sx,-dy*sy]);bv.push(dy);
+  }
+  const h=solveLinear8(A,bv);
+  return[[h[0],h[1],h[2]],[h[3],h[4],h[5]],[h[6],h[7],1]];
+}
+
+function applyHomography(H,x,y){
+  const w=H[2][0]*x+H[2][1]*y+H[2][2];
+  return{x:(H[0][0]*x+H[0][1]*y+H[0][2])/w, y:(H[1][0]*x+H[1][1]*y+H[1][2])/w};
+}
+
+// Gaussian elimination to solve 8x8 linear system
+function solveLinear8(A,b){
+  const n=8;
+  const M=A.map((row,i)=>[...row,b[i]]);
+  for(let col=0;col<n;col++){
+    let pivot=col;
+    for(let r=col+1;r<n;r++)if(Math.abs(M[r][col])>Math.abs(M[pivot][col]))pivot=r;
+    [M[col],M[pivot]]=[M[pivot],M[col]];
+    const div=M[col][col];
+    for(let j=col;j<=n;j++)M[col][j]/=div;
+    for(let r=0;r<n;r++){
+      if(r===col)continue;
+      const f=M[r][col];
+      for(let j=col;j<=n;j++)M[r][j]-=f*M[col][j];
+    }
+  }
+  return M.map(row=>row[n]);
+}
+
+function invertMatrix3(m){
+  const a=m[0],b2=m[1],c=m[2];
+  const det=a[0]*(b2[1]*c[2]-b2[2]*c[1])-a[1]*(b2[0]*c[2]-b2[2]*c[0])+a[2]*(b2[0]*c[1]-b2[1]*c[0]);
+  const inv=1/det;
+  return[
+    [(b2[1]*c[2]-b2[2]*c[1])*inv,(a[2]*c[1]-a[1]*c[2])*inv,(a[1]*b2[2]-a[2]*b2[1])*inv],
+    [(b2[2]*c[0]-b2[0]*c[2])*inv,(a[0]*c[2]-a[2]*c[0])*inv,(a[2]*b2[0]-a[0]*b2[2])*inv],
+    [(b2[0]*c[1]-b2[1]*c[0])*inv,(a[1]*c[0]-a[0]*c[1])*inv,(a[0]*b2[1]-a[1]*b2[0])*inv]
+  ];
+}
+
+// ── Show crop review ──────────────────────────────────────────────────────────
+function showCropReview(srcCanvas){
+  document.getElementById('scanner-overlay').style.display='none';
+  const overlay=document.getElementById('crop-overlay');
+  overlay.style.display='flex';
+  applyEnhancement(srcCanvas,'color');
+}
+
+function setScanMode(mode){
+  currentMode=mode;
+  ['color','gray','bw'].forEach(m=>document.getElementById('mode-'+m).classList.toggle('active',m===mode));
+  if(capturedImageData)applyEnhancement(capturedImageData.canvas,mode);
+}
+
+// ── Document enhancement — CamScanner style ───────────────────────────────────
+function applyEnhancement(srcCanvas,mode){
+  const preview=document.getElementById('crop-canvas');
+  preview.width=srcCanvas.width;preview.height=srcCanvas.height;
+  const ctx=preview.getContext('2d');
+  ctx.drawImage(srcCanvas,0,0);
+
+  const imgData=ctx.getImageData(0,0,preview.width,preview.height);
+  const d=imgData.data;
+  const len=d.length;
+
+  // Sample brightness statistics (for auto-levels)
+  let minR=255,maxR=0,minG=255,maxG=0,minB=255,maxB=0;
+  for(let i=0;i<len;i+=4){
+    if(d[i]<minR)minR=d[i];if(d[i]>maxR)maxR=d[i];
+    if(d[i+1]<minG)minG=d[i+1];if(d[i+1]>maxG)maxG=d[i+1];
+    if(d[i+2]<minB)minB=d[i+2];if(d[i+2]>maxB)maxB=d[i+2];
+  }
+
+  for(let i=0;i<len;i+=4){
+    if(mode==='color'){
+      // Per-channel auto-levels + slight warmth boost
+      d[i]=clamp(((d[i]-minR)/(maxR-minR||1))*255*1.05);
+      d[i+1]=clamp(((d[i+1]-minG)/(maxG-minG||1))*255);
+      d[i+2]=clamp(((d[i+2]-minB)/(maxB-minB||1))*255*0.97);
+      // Contrast S-curve
+      d[i]=sCurve(d[i]);d[i+1]=sCurve(d[i+1]);d[i+2]=sCurve(d[i+2]);
+    } else if(mode==='gray'){
+      const g=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];
+      const minL=0.299*minR+0.587*minG+0.114*minB;
+      const maxL=0.299*maxR+0.587*maxG+0.114*maxB;
+      const stretched=clamp(((g-minL)/(maxL-minL||1))*255);
+      const enhanced=sCurve(stretched);
+      d[i]=d[i+1]=d[i+2]=enhanced;
+    } else { // bw — strong threshold for clean document scan
+      const g=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];
+      const minL=0.299*minR+0.587*minG+0.114*minB;
+      const maxL=0.299*maxR+0.587*maxG+0.114*maxB;
+      const stretched=((g-minL)/(maxL-minL||1))*255;
+      // Adaptive threshold — paper → white, ink → black
+      const v=stretched>145?255:stretched<100?0:stretched>130?220:40;
+      d[i]=d[i+1]=d[i+2]=v;
+    }
+  }
+  ctx.putImageData(imgData,0,0);
+
+  // Sharpening pass for all modes
+  sharpenCanvas(preview,ctx,mode==='bw'?1.8:0.8);
+
+  capturedImageData={canvas:srcCanvas,mode,enhanced:preview.toDataURL('image/jpeg',0.93)};
+}
+
+function sCurve(v){
+  // Mild S-curve: darks darker, lights lighter, no inversion
+  const n=v/255;
+  const out=n<0.5?2*n*n:1-2*(1-n)*(1-n);
+  // Blend — 60% S-curve, 40% linear
+  return clamp(Math.round((out*0.6+n*0.4)*255));
+}
+
+function clamp(v){return Math.max(0,Math.min(255,Math.round(v)))}
+
+function sharpenCanvas(canvas,ctx,strength=1){
+  const d=ctx.getImageData(0,0,canvas.width,canvas.height);
+  const src=new Uint8ClampedArray(d.data);
+  const w=canvas.width,h=canvas.height;
+  const s=strength;
+  const k=[0,-s,0,-s,1+4*s,-s,0,-s,0];
+  for(let y=1;y<h-1;y++){
+    for(let x=1;x<w-1;x++){
+      const idx=(y*w+x)*4;
+      for(let c=0;c<3;c++){
+        let v=0;
+        for(let ky=-1;ky<=1;ky++)for(let kx=-1;kx<=1;kx++)v+=src[((y+ky)*w+(x+kx))*4+c]*k[(ky+1)*3+(kx+1)];
+        d.data[idx+c]=clamp(v);
+      }
+    }
+  }
+  ctx.putImageData(d,0,0);
+}
+
+// ── Confirm / retake ──────────────────────────────────────────────────────────
+async function confirmScan(){
+  if(!capturedImageData)return;
+  const dataUrl=capturedImageData.enhanced||document.getElementById('crop-canvas').toDataURL('image/jpeg',0.93);
+  document.getElementById('crop-overlay').style.display='none';
+  stopStream();
+  pendingDoc={dataUrl,mime:'image/jpeg',name:'scan-'+Date.now()+'.jpg'};
+  await extractAI(dataUrl,'image/jpeg');
+}
+
+function retakeScan(){
+  document.getElementById('crop-overlay').style.display='none';
+  document.getElementById('scanner-overlay').style.display='flex';
+  startEdgeDetection();
+}
+
+// ── END SCANNER ENGINE ────────────────────────────────────────────────────────
 
 // ── PWA Manifest ──────────────────────────────────────────────────────────────
 const mf={name:"CNS Invoice Ledger",short_name:"CNS",start_url:".",display:"standalone",background_color:"#ffffff",theme_color:"#ffffff",icons:[{src:"data:image/svg+xml,"+encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect width='192' height='192' rx='40' fill='white'/><rect x='8' y='8' width='68' height='68' rx='14' fill='%238dc63f'/><rect x='34' y='34' width='60' height='60' rx='13' fill='%23008751'/><rect x='34' y='54' width='70' height='70' rx='14' fill='%2300adef'/><rect x='58' y='8' width='38' height='38' rx='10' fill='%23ed1c24'/><text x='106' y='152' font-family='Arial Black,Helvetica,sans-serif' font-weight='900' font-size='72' fill='%23231f20' text-anchor='middle' letter-spacing='-2'>CNS</text></svg>`),sizes:"192x192",type:"image/svg+xml"},{src:"data:image/svg+xml,"+encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='100' fill='white'/><rect x='20' y='20' width='180' height='180' rx='36' fill='%238dc63f'/><rect x='90' y='90' width='160' height='160' rx='32' fill='%23008751'/><rect x='90' y='144' width='186' height='186' rx='36' fill='%2300adef'/><rect x='154' y='20' width='100' height='100' rx='26' fill='%23ed1c24'/><text x='280' y='400' font-family='Arial Black,Helvetica,sans-serif' font-weight='900' font-size='190' fill='%23231f20' text-anchor='middle' letter-spacing='-5'>CNS</text></svg>`),sizes:"512x512",type:"image/svg+xml"}]};
