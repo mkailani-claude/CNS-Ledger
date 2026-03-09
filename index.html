@@ -1,568 +1,420 @@
 <!DOCTYPE html>
-
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="CNS Invoices">
-<meta name="theme-color" content="#1a1a2e">
-<title>CNS Invoice Ledger</title>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<meta name="apple-mobile-web-app-title" content="Invoices">
+<meta name="theme-color" content="#12100e">
+<title>Invoice Ledger</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=IBM+Plex+Mono:wght@300;400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
-:root{
-  --bg:#f2f2f7;--card:#fff;--card2:#f9f9fb;
-  --ink:#1c1c1e;--muted:#6e6e73;--rule:#e5e5ea;
-  --accent:#c0392b;--blue:#007aff;--green:#34c759;
-  --orange:#ff9500;--teal:#00aec7;
-  --st:env(safe-area-inset-top,44px);
-  --sb:env(safe-area-inset-bottom,0px);
-  --sl:env(safe-area-inset-left,0px);
-  --sr:env(safe-area-inset-right,0px);
+:root {
+  --ink: #12100e; --paper: #faf7f2; --cream: #f0ebe0;
+  --rule: #d9d2c5; --accent: #b5341c; --accent2: #1c4d8c;
+  --muted: #7a7165; --green: #1e6b4a;
+  --st: env(safe-area-inset-top,0px); --sb: env(safe-area-inset-bottom,0px);
 }
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
-html,body{height:100%;overflow-x:hidden;font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--ink)}
+html,body{height:100%;overflow-x:hidden}
+body{font-family:'IBM Plex Sans',sans-serif;background:var(--paper);color:var(--ink)}
 
-/* ── LOGIN ── */
-/* FIX: overflow-y:auto + safe padding so it scrolls on tiny phones instead of clipping */
-#login-screen{
-position:fixed;inset:0;z-index:9999;
-background:linear-gradient(160deg,#0f0f1a 0%,#1a1a2e 60%,#16213e 100%);
-display:flex;flex-direction:column;align-items:center;
-overflow-y:auto;-webkit-overflow-scrolling:touch;
-padding:max(env(safe-area-inset-top,44px),44px) 1.5rem max(env(safe-area-inset-bottom,20px),20px);
+/* ── LOGIN SCREEN ── */
+#login-screen {
+  position:fixed;inset:0;background:var(--ink);z-index:9999;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  padding:2rem;
 }
-/* FIX: inner wrapper uses margin:auto to center when space allows, scrolls when not */
-.login-inner{
-width:100%;max-width:340px;
-display:flex;flex-direction:column;align-items:center;
-margin:auto;
-padding:1.5rem 0;
+.login-box {
+  width:100%;max-width:340px;
+  display:flex;flex-direction:column;align-items:center;gap:0;
 }
-.login-logo{margin-bottom:1.2rem}
-.login-title{font-size:1.5rem;font-weight:700;color:#fff;margin-bottom:0.25rem;text-align:center;letter-spacing:-0.02em}
-.login-sub{font-size:0.72rem;color:#888;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:1.8rem;text-align:center}
-.login-card{background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:20px;padding:1.25rem;width:100%}
-.login-label{font-size:0.72rem;color:#aaa;letter-spacing:0.06em;text-transform:uppercase;margin-bottom:0.5rem;display:block}
-/* FIX: explicit min-height on wrapper so the absolute eye button doesn’t bleed outside */
-.login-inp-wrap{position:relative;margin-bottom:1rem;min-height:52px}
-.login-inp-wrap input{
-width:100%;padding:0.9rem 3rem 0.9rem 1rem;
-background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);
-border-radius:12px;color:#fff;font-size:1rem;font-family:inherit;
--webkit-appearance:none;transition:border-color 0.2s;
-/* FIX: explicit height so the input box is always tappable */
-height:52px;
+.login-icon {
+  font-size:3rem;margin-bottom:1.25rem;
+  animation:pulse 2s ease-in-out infinite;
 }
-.login-inp-wrap input:focus{outline:none;border-color:rgba(255,255,255,0.4)}
-.login-inp-wrap input.err{border-color:#ff453a;animation:shake 0.35s ease}
-@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
-/* FIX: eye button — explicit z-index, large tap target, no pointer-events interference */
-.eye{
-position:absolute;right:0;top:0;bottom:0;
-width:52px;
-display:flex;align-items:center;justify-content:center;
-background:none;border:none;color:#888;cursor:pointer;
-font-size:1.1rem;
-z-index:10;
--webkit-tap-highlight-color:transparent;
-touch-action:manipulation;
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
+.login-title {
+  font-family:'Playfair Display',serif;font-size:1.8rem;
+  color:var(--paper);margin-bottom:0.3rem;text-align:center;
 }
-/* FIX: login button — explicit z-index so nothing overlaps it, generous min-height */
-.login-btn{
-width:100%;padding:0.95rem;background:var(–accent);color:#fff;border:none;
-border-radius:12px;font-size:1rem;font-weight:600;font-family:inherit;
-cursor:pointer;transition:opacity 0.15s;
-position:relative;z-index:5;
-min-height:52px;
-touch-action:manipulation;
--webkit-tap-highlight-color:transparent;
+.login-sub {
+  font-family:'IBM Plex Mono',monospace;font-size:0.62rem;
+  color:#666;letter-spacing:0.12em;text-transform:uppercase;
+  margin-bottom:2.5rem;text-align:center;
+}
+.login-field {
+  width:100%;position:relative;margin-bottom:0.9rem;
+}
+.login-field input {
+  width:100%;padding:1rem 3rem 1rem 1.1rem;
+  background:#1e1c1a;border:1px solid #333;border-radius:12px;
+  color:var(--paper);font-family:'IBM Plex Sans',sans-serif;
+  font-size:1rem;letter-spacing:0.05em;
+  transition:border-color 0.2s;-webkit-appearance:none;
+}
+.login-field input:focus{outline:none;border-color:#555}
+.login-field input.shake{animation:shake 0.4s ease}
+.login-field input.error{border-color:var(--accent)}
+@keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
+.eye-btn {
+  position:absolute;right:1rem;top:50%;transform:translateY(-50%);
+  background:none;border:none;color:#666;cursor:pointer;font-size:1.1rem;
+  padding:0.2rem;
+}
+.login-btn {
+  width:100%;padding:1rem;background:var(--accent);color:#fff;
+  border:none;border-radius:12px;font-family:'IBM Plex Sans',sans-serif;
+  font-size:1rem;font-weight:600;cursor:pointer;transition:opacity 0.15s;
+  margin-top:0.25rem;
 }
 .login-btn:active{opacity:0.8}
-.login-err{color:#ff6b6b;font-size:0.78rem;text-align:center;margin-top:0.75rem;min-height:1.1rem}
+.login-error {
+  color:#e07060;font-size:0.78rem;text-align:center;
+  margin-top:0.75rem;min-height:1.1rem;font-family:'IBM Plex Mono',monospace;
+}
+.login-attempts {
+  color:#555;font-size:0.68rem;text-align:center;
+  margin-top:1.5rem;font-family:'IBM Plex Mono',monospace;
+  letter-spacing:0.05em;
+}
 
-/* ── APP ── */
-#app{display:none;min-height:100vh}
+/* ── APP (hidden until login) ── */
+#app{display:none}
 
 /* ── HEADER ── */
-.topbar{
-background:var(–card);
-padding:calc(var(–st) + 8px) 1rem 10px;
-border-bottom:1px solid var(–rule);
-position:sticky;top:0;z-index:100;
-display:flex;align-items:center;justify-content:space-between;
-gap:0.5rem;
+header{
+  background:var(--ink);
+  padding:calc(var(--st) + 14px) 1rem 12px;
+  display:flex;align-items:center;justify-content:space-between;
+  border-bottom:2px solid var(--accent);
+  position:sticky;top:0;z-index:100;
 }
-.topbar-logo{display:flex;align-items:center;gap:0.5rem;flex-shrink:0}
-.topbar-title{font-size:1.05rem;font-weight:700;letter-spacing:-0.02em;color:var(–ink)}
-.topbar-sub{font-size:0.62rem;color:var(–muted);letter-spacing:0.04em}
-.topbar-btns{display:flex;gap:0.4rem;align-items:center}
-.ibtn{
-display:inline-flex;align-items:center;justify-content:center;gap:0.3rem;
-padding:0.45rem 0.85rem;border:none;cursor:pointer;
-font-family:inherit;font-size:0.8rem;font-weight:500;
-border-radius:10px;transition:opacity 0.15s;white-space:nowrap;
+.logo{font-family:'Playfair Display',serif;font-size:1.2rem;color:var(--paper)}
+.hbtns{display:flex;gap:0.4rem}
+
+/* ── BUTTONS ── */
+.btn{
+  display:inline-flex;align-items:center;gap:0.3rem;
+  padding:0.46rem 0.8rem;border:none;cursor:pointer;
+  font-family:'IBM Plex Sans',sans-serif;font-size:0.77rem;
+  font-weight:500;border-radius:8px;transition:opacity 0.15s;white-space:nowrap;
 }
-.ibtn:active{opacity:0.7}
-.ibtn-primary{background:var(–accent);color:#fff}
-.ibtn-blue{background:var(–blue);color:#fff}
-.ibtn-ghost{background:var(–bg);color:var(–ink);border:1px solid var(–rule)}
-.ibtn-sm{padding:0.38rem 0.7rem;font-size:0.73rem;border-radius:8px}
-.ibtn-icon{width:34px;height:34px;padding:0;border-radius:10px;font-size:1rem}
+.btn:active{opacity:0.75}
+.bp{background:var(--accent);color:#fff}
+.bs{background:#222;color:var(--paper)}
+.bg{background:transparent;color:var(--muted);border:1px solid var(--rule)}
+.bsm{padding:0.32rem 0.6rem;font-size:0.7rem}
+.bdanger{background:transparent;color:var(--accent);border:1px solid transparent}
 
-/* ── PAGE ── */
-.page{padding:1rem;padding-bottom:calc(var(–sb)+5rem);max-width:900px;margin:0 auto}
-
-/* ── SCAN AREA ── */
-.scan-row{display:grid;grid-template-columns:1fr 1fr;gap:0.6rem;margin-bottom:1rem}
-.scan-card{
-background:var(–card);border-radius:16px;padding:1.1rem 0.75rem;
-text-align:center;cursor:pointer;border:2px solid transparent;
-transition:all 0.15s;box-shadow:0 1px 4px rgba(0,0,0,0.06);
-}
-.scan-card:active{transform:scale(0.97);opacity:0.85}
-.scan-card.cam{border-color:var(–accent)}
-.scan-card.fil{border-color:var(–blue)}
-.scan-icon{font-size:1.8rem;margin-bottom:0.4rem}
-.scan-label{font-size:0.82rem;font-weight:600;margin-bottom:0.15rem}
-.scan-hint{font-size:0.68rem;color:var(–muted);line-height:1.3}
-
-/* ── PROC ── */
-.procbar{display:none;background:var(–ink);color:#fff;border-radius:12px;padding:0.8rem 1rem;margin-bottom:1rem;align-items:center;gap:0.75rem;font-size:0.82rem}
-.procbar.on{display:flex}
-.spin{width:16px;height:16px;border:2px solid #444;border-top-color:var(–accent);border-radius:50%;animation:spin 0.8s linear infinite;flex-shrink:0}
-@keyframes spin{to{transform:rotate(360deg)}}
+/* ── CONTENT ── */
+.page{max-width:900px;margin:0 auto;padding:1rem 1rem calc(var(--sb)+1rem)}
 
 /* ── STATS ── */
-.stats{display:grid;grid-template-columns:repeat(2,1fr);gap:0.6rem;margin-bottom:1rem}
-.stat-card{background:var(–card);border-radius:14px;padding:0.9rem 1rem;box-shadow:0 1px 4px rgba(0,0,0,0.05)}
-.stat-label{font-size:0.65rem;text-transform:uppercase;letter-spacing:0.07em;color:var(–muted);margin-bottom:0.25rem}
-.stat-val{font-size:1.35rem;font-weight:700;letter-spacing:-0.02em}
-.stat-val.green{color:var(–green)}
-.stat-val.red{color:var(–accent);font-size:0.9rem;margin-top:0.15rem}
+.stats{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:var(--rule);border:1px solid var(--rule);border-radius:10px;overflow:hidden;margin-bottom:1.25rem}
+.stat{background:var(--cream);padding:0.9rem 1rem}
+.slabel{font-family:'IBM Plex Mono',monospace;font-size:0.58rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted);display:block;margin-bottom:0.2rem}
+.sval{font-family:'Playfair Display',serif;font-size:1.4rem;display:block}
+.sval.green{color:var(--green)}
+.sval.sm{font-size:0.88rem;margin-top:0.2rem;color:var(--accent)}
 
-/* ── FILTERS ── */
-.filters{background:var(–card);border-radius:14px;padding:0.9rem 1rem;margin-bottom:1rem;box-shadow:0 1px 4px rgba(0,0,0,0.05)}
-.filter-title{font-size:0.72rem;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(–muted);margin-bottom:0.6rem}
-.filter-row{display:grid;grid-template-columns:1fr 1fr;gap:0.5rem}
-.filter-select{
-width:100%;padding:0.55rem 0.75rem;border:1px solid var(–rule);border-radius:10px;
-background:#fff;color:var(–ink);font-family:inherit;font-size:0.82rem;
--webkit-appearance:none;background-image:url(“data:image/svg+xml,%3Csvg xmlns=‘http://www.w3.org/2000/svg’ width=‘12’ height=‘8’ viewBox=‘0 0 12 8’%3E%3Cpath d=‘M1 1l5 5 5-5’ stroke=’%236e6e73’ stroke-width=‘1.5’ fill=‘none’ stroke-linecap=‘round’/%3E%3C/svg%3E”);
-background-repeat:no-repeat;background-position:right 0.75rem center;padding-right:2rem;
+/* ── UPLOAD ZONE ── */
+.dropzone{
+  border:2px dashed var(--rule);border-radius:12px;
+  padding:2rem 1rem;text-align:center;background:var(--cream);
+  margin-bottom:1.25rem;cursor:pointer;transition:all 0.2s;position:relative;
 }
-.filter-select:focus{outline:none;border-color:var(–blue)}
-.filter-clear{display:none;margin-top:0.5rem}
-.filter-clear.show{display:block}
+.dropzone.over{border-color:var(--accent2);background:#eef3fb}
+.dropzone input{position:absolute;inset:0;opacity:0;width:100%;height:100%;cursor:pointer}
+.dz-icon{font-size:2rem;margin-bottom:0.5rem}
+.dz-title{font-family:'Playfair Display',serif;font-size:1rem;margin-bottom:0.3rem}
+.dz-hint{font-size:0.73rem;color:var(--muted)}
 
-/* ── LEDGER HEADER ── */
-.ledger-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:0.6rem}
-.ledger-title{font-size:1rem;font-weight:700;letter-spacing:-0.01em}
-.export-btns{display:flex;gap:0.3rem}
+/* ── PROC BAR ── */
+.procbar{display:none;background:var(--ink);color:var(--paper);border-radius:8px;padding:0.8rem 1rem;margin-bottom:1rem;align-items:center;gap:0.8rem;font-size:0.8rem}
+.procbar.on{display:flex}
+.spin{width:16px;height:16px;border:2px solid #444;border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
 
-/* ── CARD LIST ── */
-.invoice-list{display:flex;flex-direction:column;gap:0.6rem}
-.inv-card{
-background:var(–card);border-radius:14px;overflow:hidden;
-box-shadow:0 1px 4px rgba(0,0,0,0.06);animation:fadeIn 0.25s ease both;
-}
-@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
-.inv-card-top{display:flex;align-items:flex-start;padding:0.9rem 1rem 0.7rem;gap:0.75rem}
-.inv-doc-thumb{width:40px;height:50px;object-fit:cover;border-radius:6px;border:1px solid var(–rule);cursor:pointer;flex-shrink:0}
-.inv-doc-pdf{width:40px;height:50px;background:#eef3fb;border:1px solid #c5d4ee;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:1.3rem;cursor:pointer;flex-shrink:0}
-.inv-doc-none{width:40px;height:50px;background:var(–bg);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0;color:var(–muted)}
-.inv-main{flex:1;min-width:0}
-.inv-patient{font-size:0.95rem;font-weight:600;letter-spacing:-0.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.inv-doctor{font-size:0.77rem;color:var(–muted);margin-top:0.1rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.inv-desc{font-size:0.75rem;color:var(–muted);margin-top:0.2rem;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
-.inv-amount{font-size:1.1rem;font-weight:700;color:var(–green);letter-spacing:-0.02em;flex-shrink:0}
-.inv-card-bottom{
-display:flex;align-items:center;justify-content:space-between;
-padding:0.5rem 1rem 0.65rem;border-top:1px solid var(–rule);
-background:var(–card2);
-}
-.inv-meta{display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap}
-.inv-chip{font-size:0.67rem;color:var(–muted);background:var(–bg);border-radius:6px;padding:0.2rem 0.5rem;font-family:monospace}
-.inv-chip.blue{background:#e8f2ff;color:var(–blue)}
-.inv-actions{display:flex;gap:0.3rem}
-.act-btn{width:30px;height:30px;border-radius:8px;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:0.9rem;background:var(–bg);transition:opacity 0.15s}
-.act-btn:active{opacity:0.6}
-.act-btn.del{color:var(–accent)}
-.empty-state{background:var(–card);border-radius:14px;padding:3rem 1.5rem;text-align:center}
-.empty-icon{font-size:3rem;margin-bottom:0.75rem}
-.empty-title{font-size:1.1rem;font-weight:600;margin-bottom:0.4rem}
-.empty-hint{font-size:0.82rem;color:var(–muted);line-height:1.5}
+/* ── LEDGER ── */
+.lhdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem}
+.ltitle{font-family:'Playfair Display',serif;font-size:1.15rem}
+.exports{display:flex;gap:0.35rem}
+.twrap{overflow-x:auto;border:1px solid var(--rule);border-radius:10px}
+table{width:100%;border-collapse:collapse;font-size:0.77rem}
+thead{background:var(--ink);color:var(--paper)}
+th{padding:0.62rem 0.7rem;text-align:left;font-family:'IBM Plex Mono',monospace;font-size:0.57rem;font-weight:400;letter-spacing:0.08em;text-transform:uppercase;white-space:nowrap;border-right:1px solid #2a2825}
+th:last-child{border-right:none}
+tbody tr{border-bottom:1px solid var(--rule);transition:background 0.1s;animation:rowIn 0.25s ease both}
+@keyframes rowIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+tbody tr:last-child{border-bottom:none}
+tbody tr:hover{background:var(--cream)}
+td{padding:0.7rem 0.7rem;border-right:1px solid var(--rule);vertical-align:middle}
+td:last-child{border-right:none}
+.mono{font-family:'IBM Plex Mono',monospace;font-size:0.71rem}
+.amt{font-family:'IBM Plex Mono',monospace;font-weight:500;color:var(--green);text-align:right}
+.clip{max-width:150px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.docthumb{width:30px;height:38px;object-fit:cover;border:1px solid var(--rule);border-radius:3px;cursor:pointer;display:block}
+.docpdf{width:30px;height:38px;background:#eef3fb;border:1px solid #c5d4ee;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:1rem;cursor:pointer}
+.ra{display:flex;gap:0.2rem}
+.empty{padding:3rem 1rem;text-align:center;color:var(--muted)}
+.emptyicon{font-size:2.5rem;margin-bottom:0.6rem}
+.emptytitle{font-family:'Playfair Display',serif;font-size:1rem;margin-bottom:0.3rem;color:var(--ink)}
 
-/* ── BOTTOM TAB BAR ── */
-.tabbar{
-position:fixed;bottom:0;left:0;right:0;
-background:rgba(255,255,255,0.92);
-backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
-border-top:1px solid var(–rule);
-padding:0.5rem 1rem calc(var(–sb)+0.5rem);
-display:flex;justify-content:space-around;align-items:center;
-z-index:50;
-}
-.tab{display:flex;flex-direction:column;align-items:center;gap:0.2rem;cursor:pointer;padding:0.2rem 1rem;background:none;border:none;font-family:inherit;opacity:0.5;transition:opacity 0.15s}
-.tab.active{opacity:1;color:var(–accent)}
-.tab-icon{font-size:1.3rem;line-height:1}
-.tab-label{font-size:0.62rem;font-weight:500;letter-spacing:0.02em}
-
-/* ── OVERLAY / SHEET ── */
-.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:500;align-items:flex-end;justify-content:center}
+/* ── MODALS ── */
+.overlay{display:none;position:fixed;inset:0;background:rgba(12,10,8,0.78);z-index:500;align-items:flex-end;justify-content:center;padding:0}
 .overlay.on{display:flex}
-.sheet{
-background:var(–card);border-radius:22px 22px 0 0;
-width:100%;max-width:680px;
-max-height:92vh;overflow-y:auto;
-box-shadow:0 -4px 40px rgba(0,0,0,0.2);
-animation:sheetUp 0.3s cubic-bezier(0.32,0.72,0,1);
-padding-bottom:calc(var(–sb)+0.5rem);
-}
-@keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
-.sheet-handle{width:36px;height:4px;background:var(–rule);border-radius:2px;margin:10px auto 0;flex-shrink:0}
-.sheet-hdr{display:flex;align-items:center;justify-content:space-between;padding:1rem 1.25rem 0.75rem}
-.sheet-title{font-size:1.1rem;font-weight:700;letter-spacing:-0.02em}
-.sheet-close{width:30px;height:30px;border-radius:50%;background:var(–bg);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:0.85rem;color:var(–muted);font-weight:600;flex-shrink:0}
-.sheet-close:active{opacity:0.6}
-.sheet-body{padding:0 1.25rem 1rem}
-.sheet-footer{padding:0.75rem 1.25rem;border-top:1px solid var(–rule);display:flex;gap:0.6rem;justify-content:flex-end}
+.modal{background:var(--paper);border-radius:20px 20px 0 0;width:100%;max-width:640px;max-height:92vh;overflow-y:auto;box-shadow:0 -12px 60px rgba(0,0,0,0.3);animation:slideUp 0.25s ease;padding-bottom:calc(var(--sb)+1rem)}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.mhdr{padding:1rem 1.1rem;border-bottom:1px solid var(--rule);display:flex;align-items:center;justify-content:space-between;background:var(--cream);border-radius:20px 20px 0 0;position:sticky;top:0;z-index:10}
+.mtitle{font-family:'Playfair Display',serif;font-size:1.05rem}
+.mclose{background:none;border:none;font-size:1.1rem;cursor:pointer;color:var(--muted);padding:0.25rem 0.4rem;border-radius:6px}
+.mclose:active{background:var(--rule)}
+.mbody{padding:1.1rem}
+.mfoot{padding:0.9rem 1.1rem;border-top:1px solid var(--rule);display:flex;justify-content:flex-end;gap:0.5rem;background:var(--cream)}
 
 /* ── FORM ── */
-.field{display:flex;flex-direction:column;gap:0.3rem;margin-bottom:0.85rem}
-.field-label{font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:0.07em;color:var(–muted)}
-.field input,.field textarea,.field select{width:100%;padding:0.72rem 0.9rem;border:1.5px solid var(–rule);border-radius:12px;background:#fff;color:var(–ink);font-family:inherit;font-size:0.92rem;-webkit-appearance:none;transition:border-color 0.2s}
-.field input:focus,.field textarea:focus{outline:none;border-color:var(–blue)}
-.field textarea{resize:vertical;min-height:70px}
-.field-row{display:grid;grid-template-columns:1fr 1fr;gap:0.75rem}
-.ai-pill{background:#e8f2ff;border:1px solid #b8d4f8;border-radius:10px;padding:0.65rem 0.85rem;margin-bottom:0.9rem;display:flex;gap:0.5rem;align-items:flex-start}
-.ai-dot{background:var(–blue);color:#fff;font-size:0.58rem;font-weight:700;padding:0.15rem 0.4rem;border-radius:4px;letter-spacing:0.05em;flex-shrink:0;margin-top:1px}
-.ai-msg{font-size:0.78rem;color:#1a4a8c;line-height:1.5}
-.doc-attached{background:#e9f7f0;border:1px solid #a8dcbe;border-radius:10px;padding:0.55rem 0.8rem;font-size:0.8rem;color:#1a5c38;display:flex;align-items:center;gap:0.4rem}
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:0.85rem}
+.field{display:flex;flex-direction:column;gap:0.28rem}
+.field.full{grid-column:1/-1}
+label{font-family:'IBM Plex Mono',monospace;font-size:0.6rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--muted)}
+input[type=text],input[type=date],input[type=number],input[type=email],textarea{
+  font-family:'IBM Plex Sans',sans-serif;font-size:0.9rem;
+  padding:0.6rem 0.75rem;border:1px solid var(--rule);border-radius:8px;
+  background:#fff;color:var(--ink);width:100%;-webkit-appearance:none;
+}
+input:focus,textarea:focus{outline:none;border-color:var(--accent2)}
+textarea{resize:vertical;min-height:65px}
+.ai-banner{background:linear-gradient(135deg,#eef3fb,#f3f0fb);border:1px solid #c5d4ee;border-radius:8px;padding:0.75rem 0.9rem;margin-bottom:1rem;display:flex;gap:0.6rem;align-items:flex-start}
+.ai-badge{background:var(--accent2);color:white;font-family:'IBM Plex Mono',monospace;font-size:0.55rem;padding:0.18rem 0.4rem;border-radius:3px;letter-spacing:0.06em;white-space:nowrap;margin-top:1px}
+.ai-txt{font-size:0.78rem;color:#2a3f6b;line-height:1.5}
+.doc-ok{background:#edf7f2;border:1px solid #a8d9c0;border-radius:6px;padding:0.5rem 0.8rem;font-size:0.78rem;color:var(--green)}
 
-/* ── SETTINGS ── */
-.settings-section{margin-bottom:1.5rem}
-.settings-section-title{font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:var(–muted);margin-bottom:0.6rem;padding:0 0.1rem}
-.settings-card{background:var(–bg);border-radius:14px;overflow:hidden}
-.settings-row{display:flex;align-items:center;justify-content:space-between;padding:0.85rem 1rem;border-bottom:1px solid var(–rule);gap:0.75rem}
-.settings-row:last-child{border-bottom:none}
-.settings-row-label{font-size:0.88rem;font-weight:500}
-.settings-row-hint{font-size:0.72rem;color:var(–muted);margin-top:0.1rem}
-.settings-row-left{flex:1}
-.pw-wrap{position:relative;margin-bottom:0.5rem}
-.pw-wrap input{width:100%;padding:0.7rem 2.8rem 0.7rem 0.9rem;border:1.5px solid var(–rule);border-radius:12px;background:#fff;font-family:inherit;font-size:0.9rem;-webkit-appearance:none}
-.pw-wrap input:focus{outline:none;border-color:var(–blue)}
-.pw-eye{position:absolute;right:0.8rem;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(–muted);font-size:1rem;padding:0.25rem;z-index:10;touch-action:manipulation}
-.msg-line{font-size:0.75rem;text-align:center;min-height:1rem;margin-top:0.25rem}
+/* ── SETUP MODAL ── */
+.section-title{font-family:'Playfair Display',serif;font-size:1rem;margin-bottom:0.75rem}
+.setup-steps{display:flex;flex-direction:column;gap:0.9rem;margin-bottom:1.25rem}
+.step{display:flex;gap:0.75rem;align-items:flex-start}
+.step-num{width:26px;height:26px;border-radius:50%;background:var(--ink);color:var(--paper);display:flex;align-items:center;justify-content:center;font-family:'IBM Plex Mono',monospace;font-size:0.72rem;flex-shrink:0}
+.step-text{font-size:0.81rem;line-height:1.55;padding-top:0.2rem}
+.step-text strong{display:block;margin-bottom:0.08rem}
+.divider{border:none;border-top:1px solid var(--rule);margin:1.25rem 0}
+.pw-section{display:flex;flex-direction:column;gap:0.6rem}
+.pw-row{position:relative}
+.pw-row input{width:100%;padding:0.65rem 2.8rem 0.65rem 0.9rem;border:1px solid var(--rule);border-radius:8px;font-family:'IBM Plex Sans',sans-serif;font-size:0.9rem;background:#fff;-webkit-appearance:none}
+.pw-row input:focus{outline:none;border-color:var(--accent2)}
+.pw-eye{position:absolute;right:0.75rem;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--muted);font-size:1rem;padding:0.2rem}
 
 /* ── VIEWER ── */
-.vframe{width:100%;height:62vh;border:none;display:block;border-radius:10px}
-.vimg{width:100%;border-radius:10px}
+.vframe{width:100%;height:65vh;border:none;display:block}
+.vimg{width:100%;border-radius:8px}
 
 /* ── TOAST ── */
-#toasts{position:fixed;bottom:calc(var(–sb)+5rem);left:50%;transform:translateX(-50%);z-index:9000;display:flex;flex-direction:column;gap:0.4rem;pointer-events:none;width:88%;max-width:340px}
-.toast{background:rgba(28,28,30,0.92);backdrop-filter:blur(12px);color:#fff;padding:0.7rem 1rem;border-radius:12px;font-size:0.82rem;text-align:center;animation:tin 0.25s ease;border-left:3px solid var(–green)}
-.toast.err{border-left-color:var(–accent)}
+#toasts{position:fixed;bottom:calc(var(--sb)+1.2rem);left:50%;transform:translateX(-50%);z-index:9000;display:flex;flex-direction:column;gap:0.4rem;pointer-events:none;width:90%;max-width:340px}
+.toast{background:var(--ink);color:var(--paper);padding:0.65rem 1rem;border-radius:10px;font-size:0.8rem;border-left:3px solid var(--green);animation:tin 0.25s ease;text-align:center}
+.toast.err{border-left-color:var(--accent)}
 @keyframes tin{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 
-/* ── ERR BANNER ── */
-.err-banner{position:fixed;top:calc(var(–st)+60px);left:1rem;right:1rem;z-index:400;background:#fff0ee;border:1px solid #f5c6c2;border-radius:12px;padding:0.85rem 1rem;font-size:0.8rem;color:#7a1a0e;line-height:1.5;box-shadow:0 4px 16px rgba(0,0,0,0.1)}
-
-/* ── SCANNER ── */
-.scan-mode-btn{background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;font-size:0.78rem;font-family:‘Inter’,sans-serif;padding:0.45rem 0.9rem;border-radius:20px;cursor:pointer;transition:all 0.15s}
-.scan-mode-btn.active{background:#fff;color:#000;border-color:#fff}
+@media(max-width:480px){.fgrid{grid-template-columns:1fr}.field.full{grid-column:1}}
 </style>
-
 </head>
 <body>
 
-<!-- ══ LOGIN ══════════════════════════════════════════════════════════════════ -->
-
+<!-- ══ LOGIN SCREEN ══════════════════════════════════════════════════════════ -->
 <div id="login-screen">
-  <div class="login-inner">
-    <div class="login-logo">
-      <div style="background:#fff;border-radius:16px;padding:0.9rem 1.3rem;display:inline-flex;flex-direction:column;align-items:center;gap:0.4rem;box-shadow:0 4px 24px rgba(0,0,0,0.18)">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 90" width="160">
-          <rect x="2" y="2" width="46" height="46" rx="10" fill="#8dc63f"/>
-          <rect x="20" y="20" width="40" height="40" rx="9" fill="#008751"/>
-          <rect x="20" y="34" width="48" height="48" rx="10" fill="#00adef"/>
-          <rect x="38" y="2" width="26" height="26" rx="7" fill="#ed1c24"/>
-          <text x="82" y="58" font-family="Arial Black,Helvetica,sans-serif" font-weight="900" font-size="52" fill="#231f20" letter-spacing="-1">CNS</text>
-        </svg>
-        <div style="font-family:'Inter',Arial,sans-serif;font-size:0.75rem;color:#444;letter-spacing:0.01em">d'Gesondheetskeess</div>
-      </div>
-    </div>
+  <div class="login-box">
+    <div class="login-icon">🔒</div>
     <div class="login-title">Invoice Ledger</div>
     <div class="login-sub">Private · Secure · Yours</div>
-    <div class="login-card">
-      <span class="login-label">Password</span>
-      <div class="login-inp-wrap">
-        <input type="password" id="pw-input" placeholder="Enter password"
-          onkeydown="if(event.key==='Enter')tryLogin()"
-          oninput="document.getElementById('login-err').textContent=''">
-        <button class="eye" type="button" onclick="toggleEye()">👁</button>
-      </div>
-      <button class="login-btn" type="button" onclick="tryLogin()">Unlock</button>
-      <div class="login-err" id="login-err"></div>
+    <div class="login-field">
+      <input type="password" id="pw-input" placeholder="Enter password"
+        onkeydown="if(event.key==='Enter')tryLogin()"
+        oninput="document.getElementById('login-err').textContent=''">
+      <button class="eye-btn" onclick="toggleEye()" id="eye-btn">👁</button>
     </div>
+    <button class="login-btn" onclick="tryLogin()">Unlock</button>
+    <div class="login-error" id="login-err"></div>
+    <div class="login-attempts" id="login-attempts"></div>
   </div>
 </div>
 
 <!-- ══ APP ════════════════════════════════════════════════════════════════════ -->
-
 <div id="app">
 
-  <!-- TOP BAR -->
-
-  <div class="topbar">
-    <div class="topbar-logo">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 90" height="34">
-        <rect x="2" y="2" width="46" height="46" rx="10" fill="#8dc63f"/>
-        <rect x="20" y="20" width="40" height="40" rx="9" fill="#008751"/>
-        <rect x="20" y="34" width="48" height="48" rx="10" fill="#00adef"/>
-        <rect x="38" y="2" width="26" height="26" rx="7" fill="#ed1c24"/>
-        <text x="82" y="58" font-family="Arial Black,Helvetica,sans-serif" font-weight="900" font-size="52" fill="#231f20" letter-spacing="-1">CNS</text>
-      </svg>
-      <div>
-        <div class="topbar-title">Invoices</div>
-      </div>
+  <header>
+    <span class="logo">📋 Invoice Ledger</span>
+    <div class="hbtns">
+      <button class="btn bs bsm" onclick="showSetup()">⚙</button>
+      <button class="btn bs bsm" onclick="openManual()">＋</button>
+      <button class="btn bp bsm" onclick="triggerUpload()">📄 Scan</button>
+      <input type="file" id="fileinput" accept="image/*,application/pdf" style="display:none" onchange="handleFile(this)">
     </div>
-    <div class="topbar-btns">
-      <button class="ibtn ibtn-ghost ibtn-sm" onclick="expCSV()">⬇ CSV</button>
-      <button class="ibtn ibtn-ghost ibtn-sm" onclick="expExcel()">⬇ XLS</button>
-    </div>
-  </div>
+  </header>
 
   <div class="page">
 
-```
-<!-- SCAN BUTTONS -->
-<div class="scan-row">
-  <div class="scan-card cam" onclick="openScanner()">
-    <div class="scan-icon">📷</div>
-    <div class="scan-label">Camera Scan</div>
-    <div class="scan-hint">Live edge detection · auto-crop · perspective fix</div>
+    <div class="stats">
+      <div class="stat"><span class="slabel">Total Invoices</span><span class="sval" id="sc">0</span></div>
+      <div class="stat"><span class="slabel">Total Amount</span><span class="sval green" id="st">€0.00</span></div>
+      <div class="stat"><span class="slabel">Latest</span><span class="sval sm" id="sl">—</span></div>
+      <div class="stat"><span class="slabel">Providers</span><span class="sval" id="sd">0</span></div>
+    </div>
+
+    <div class="dropzone" id="dropzone" onclick="triggerUpload()"
+      ondragover="doDrag(event,true)" ondragleave="doDrag(event,false)" ondrop="doDrop(event)">
+      <input type="file" accept="image/*,application/pdf" onchange="handleFile(this)" onclick="event.stopPropagation()">
+      <div class="dz-icon">📋</div>
+      <div class="dz-title">Tap to scan or upload invoice</div>
+      <div class="dz-hint">PDF, JPG, PNG — AI extracts all fields automatically</div>
+    </div>
+
+    <div class="procbar" id="proc">
+      <div class="spin"></div>
+      <span><strong>Reading invoice…</strong>&nbsp; Claude AI is extracting the data</span>
+    </div>
+
+    <div class="lhdr">
+      <span class="ltitle">Ledger</span>
+      <div class="exports">
+        <button class="btn bg bsm" onclick="expCSV()">⬇ CSV</button>
+        <button class="btn bg bsm" onclick="expExcel()">⬇ Excel</button>
+        <button class="btn bg bsm" onclick="expPDF()">⬇ PDF</button>
+      </div>
+    </div>
+
+    <div class="twrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th><th>Date</th><th>Matricule</th><th>Patient</th>
+            <th>Invoice No.</th><th>Doctor / Provider</th><th>Description</th>
+            <th style="text-align:right">Amount</th><th>Doc</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
   </div>
-  <div class="scan-card fil" onclick="triggerUpload()">
-    <div class="scan-icon">📄</div>
-    <div class="scan-label">Upload File</div>
-    <div class="scan-hint">PDF, JPG or PNG from Files</div>
-  </div>
-</div>
-<input type="file" id="fileinput" accept="image/*,application/pdf" style="display:none" onchange="handleFile(this)">
-<input type="file" id="camerainput" accept="image/*" capture="environment" style="display:none" onchange="handleFile(this)">
+</div><!-- /app -->
 
-<!-- PROC BAR -->
-<div class="procbar" id="proc">
-  <div class="spin"></div>
-  <span id="proc-msg">Processing…</span>
-</div>
-
-<!-- STATS -->
-<div class="stats">
-  <div class="stat-card"><div class="stat-label">Total Invoices</div><div class="stat-val" id="sc">0</div></div>
-  <div class="stat-card"><div class="stat-label">Total Amount</div><div class="stat-val green" id="st">€0.00</div></div>
-  <div class="stat-card"><div class="stat-label">Showing</div><div class="stat-val" id="sf">All</div></div>
-  <div class="stat-card"><div class="stat-label">Latest Date</div><div class="stat-val red" id="sl">—</div></div>
-</div>
-
-<!-- FILTERS -->
-<div class="filters">
-  <div class="filter-title">🔍 Filter</div>
-  <div class="filter-row">
-    <select class="filter-select" id="filter-mat" onchange="applyFilters()">
-      <option value="">All Matricules</option>
-    </select>
-    <select class="filter-select" id="filter-month" onchange="applyFilters()">
-      <option value="">All Months</option>
-    </select>
-  </div>
-  <button class="ibtn ibtn-ghost ibtn-sm filter-clear" id="filter-clear-btn" onclick="clearFilters()" style="margin-top:0.5rem;width:100%;justify-content:center">✕ Clear Filters</button>
-</div>
-
-<!-- LEDGER -->
-<div class="ledger-hdr">
-  <span class="ledger-title">Ledger</span>
-  <button class="ibtn ibtn-ghost ibtn-sm" onclick="expPDF()">⬇ PDF</button>
-</div>
-<div class="invoice-list" id="inv-list">
-  <div class="empty-state">
-    <div class="empty-icon">📂</div>
-    <div class="empty-title">No invoices yet</div>
-    <div class="empty-hint">Tap Camera Scan or Upload File above to add your first invoice.</div>
-  </div>
-</div>
-```
-
-  </div>
-
-  <!-- TAB BAR -->
-
-  <div class="tabbar">
-    <button class="tab active" onclick="scrollToTop()">
-      <span class="tab-icon">📋</span>
-      <span class="tab-label">Ledger</span>
-    </button>
-    <button class="tab" onclick="triggerCamera()">
-      <span class="tab-icon">📷</span>
-      <span class="tab-label">Scan</span>
-    </button>
-    <button class="tab" onclick="openManual()">
-      <span class="tab-icon">＋</span>
-      <span class="tab-label">Manual</span>
-    </button>
-    <button class="tab" onclick="showSetup()">
-      <span class="tab-icon">⚙️</span>
-      <span class="tab-label">Settings</span>
-    </button>
-  </div>
-</div>
-
-<!-- ══ FORM SHEET ══ -->
-
+<!-- FORM MODAL -->
 <div class="overlay" id="form-overlay" onclick="overlayTap(event,'form-overlay')">
-  <div class="sheet">
-    <div class="sheet-handle"></div>
-    <div class="sheet-hdr">
-      <span class="sheet-title" id="form-title">New Invoice</span>
-      <button class="sheet-close" onclick="closeSheet('form-overlay')">✕</button>
+  <div class="modal">
+    <div class="mhdr">
+      <span class="mtitle" id="form-title">New Invoice</span>
+      <button class="mclose" onclick="closeModal('form-overlay')">✕</button>
     </div>
-    <div class="sheet-body">
-      <div class="ai-pill" id="ai-banner" style="display:none">
-        <span class="ai-dot">AI</span>
-        <span class="ai-msg">Fields extracted automatically — please review and correct if needed.</span>
+    <div class="mbody">
+      <div class="ai-banner" id="ai-banner" style="display:none">
+        <span class="ai-badge">AI</span>
+        <span class="ai-txt">Fields extracted automatically — please review and correct if needed.</span>
       </div>
-      <div class="field-row">
-        <div class="field"><div class="field-label">Date</div><input type="date" id="f-date"></div>
-        <div class="field"><div class="field-label">Amount (€)</div><input type="number" id="f-amt" placeholder="0.00" step="0.01" min="0" inputmode="decimal"></div>
-      </div>
-      <div class="field"><div class="field-label">Patient Name</div><input type="text" id="f-pat" placeholder="Full name"></div>
-      <div class="field"><div class="field-label">Matricule / ID</div><input type="text" id="f-mat" placeholder="e.g. 2023 09 28 021 40"></div>
-      <div class="field"><div class="field-label">Invoice Number</div><input type="text" id="f-inv" placeholder="e.g. 01/181337-0228600"></div>
-      <div class="field"><div class="field-label">Doctor / Provider</div><input type="text" id="f-doc" placeholder="Doctor or clinic name"></div>
-      <div class="field"><div class="field-label">Description of Service</div><textarea id="f-desc" placeholder="e.g. Examen pré-anesthésique…"></textarea></div>
-      <div class="field" id="docfield" style="display:none">
-        <div class="field-label">Attached Document</div>
-        <div class="doc-attached">✓ Document attached from scan</div>
+      <div class="fgrid">
+        <div class="field"><label>Date</label><input type="date" id="f-date"></div>
+        <div class="field"><label>Matricule / ID</label><input type="text" id="f-mat" placeholder="e.g. 2023 09 28 021 40"></div>
+        <div class="field"><label>Patient Name</label><input type="text" id="f-pat" placeholder="Full name"></div>
+        <div class="field"><label>Invoice Number</label><input type="text" id="f-inv" placeholder="e.g. 01/181337-0228600"></div>
+        <div class="field full"><label>Doctor / Provider</label><input type="text" id="f-doc" placeholder="Doctor or clinic name"></div>
+        <div class="field full"><label>Description of Service</label><textarea id="f-desc" placeholder="e.g. Examen pré-anesthésique…"></textarea></div>
+        <div class="field"><label>Amount (€)</label><input type="number" id="f-amt" placeholder="0.00" step="0.01" min="0" inputmode="decimal"></div>
+        <div class="field" id="docfield" style="display:none">
+          <label>Attached Document</label>
+          <div class="doc-ok">✓ Document attached</div>
+        </div>
       </div>
     </div>
-    <div class="sheet-footer">
-      <button class="ibtn ibtn-ghost" onclick="closeSheet('form-overlay')">Cancel</button>
-      <button class="ibtn ibtn-primary" onclick="saveEntry()">Save to Ledger</button>
+    <div class="mfoot">
+      <button class="btn bg" onclick="closeModal('form-overlay')">Cancel</button>
+      <button class="btn bp" onclick="saveEntry()">Save to Ledger</button>
     </div>
   </div>
 </div>
 
-<!-- ══ VIEWER SHEET ══ -->
-
+<!-- VIEWER MODAL -->
 <div class="overlay" id="view-overlay" onclick="overlayTap(event,'view-overlay')">
-  <div class="sheet" style="max-width:820px">
-    <div class="sheet-handle"></div>
-    <div class="sheet-hdr">
-      <span class="sheet-title" id="view-title">Invoice</span>
-      <button class="sheet-close" onclick="closeSheet('view-overlay')">✕</button>
+  <div class="modal">
+    <div class="mhdr">
+      <span class="mtitle" id="view-title">Invoice Document</span>
+      <button class="mclose" onclick="closeModal('view-overlay')">✕</button>
     </div>
-    <div style="padding:0 1.25rem 1rem" id="view-body"></div>
-    <div class="sheet-footer">
-      <button class="ibtn ibtn-ghost" onclick="closeSheet('view-overlay')">Close</button>
-      <a class="ibtn ibtn-blue" id="view-dl" href="#" download>⬇ Download</a>
+    <div class="mbody" style="padding:0.75rem" id="view-body"></div>
+    <div class="mfoot">
+      <button class="btn bg" onclick="closeModal('view-overlay')">Close</button>
+      <a class="btn bp" id="view-dl" href="#" download>⬇ Download</a>
     </div>
   </div>
 </div>
 
-<!-- ══ SETTINGS SHEET ══ -->
-
+<!-- SETUP MODAL -->
 <div class="overlay" id="setup-overlay" onclick="overlayTap(event,'setup-overlay')">
-  <div class="sheet">
-    <div class="sheet-handle"></div>
-    <div class="sheet-hdr">
-      <span class="sheet-title">Settings</span>
-      <button class="sheet-close" onclick="closeSheet('setup-overlay')">✕</button>
+  <div class="modal">
+    <div class="mhdr">
+      <span class="mtitle">Settings & Setup</span>
+      <button class="mclose" onclick="closeModal('setup-overlay')">✕</button>
     </div>
-    <div class="sheet-body">
-      <div class="settings-section">
-        <div class="settings-section-title">🤖 AI Extraction</div>
-        <p style="font-size:0.8rem;color:var(--muted);margin-bottom:0.75rem;line-height:1.5">Your API key is stored only on this device — never in the code or on GitHub. Get a free key at <strong>platform.anthropic.com</strong></p>
-        <div class="pw-wrap">
-          <input type="password" id="api-key-input" placeholder="sk-ant-api03-..." style="font-family:monospace;font-size:0.75rem">
-          <button class="pw-eye" type="button" onclick="togglePwField('api-key-input')">👁</button>
+    <div class="mbody">
+
+      <!-- API Key -->
+      <p class="section-title">🤖 Claude AI — API Key</p>
+      <div class="pw-section">
+        <div class="pw-row">
+          <input type="password" id="api-key-input" placeholder="sk-ant-api03-…" oninput="">
+          <button class="pw-eye" onclick="togglePwField('api-key-input')">👁</button>
         </div>
-        <button class="ibtn ibtn-primary" style="width:100%;justify-content:center;margin-top:0.4rem" onclick="saveApiKeyFromInput()">Save API Key</button>
-        <div class="msg-line" id="apikey-msg"></div>
+        <button class="btn bp" style="width:100%;justify-content:center" onclick="saveApiKey()">Save API Key</button>
+        <div id="api-key-msg" style="font-size:0.78rem;text-align:center;min-height:1rem;font-family:'IBM Plex Mono',monospace"></div>
       </div>
-      <div class="settings-section">
-        <div class="settings-section-title">🔬 Test Connection</div>
-        <button class="ibtn ibtn-ghost" style="width:100%;justify-content:center" onclick="testAPI()">▶ Run API Test</button>
-        <div id="test-result" style="margin-top:0.6rem;font-size:0.72rem;font-family:monospace;background:var(--bg);border-radius:10px;padding:0.75rem;display:none;word-break:break-all;line-height:1.6;white-space:pre-wrap"></div>
-      </div>
-      <div class="settings-section">
-        <div class="settings-section-title">🔑 Change Password</div>
-        <div class="pw-wrap"><input type="password" id="pw-current" placeholder="Current password"><button class="pw-eye" type="button" onclick="togglePwField('pw-current')">👁</button></div>
-        <div class="pw-wrap"><input type="password" id="pw-new" placeholder="New password"><button class="pw-eye" type="button" onclick="togglePwField('pw-new')">👁</button></div>
-        <div class="pw-wrap"><input type="password" id="pw-confirm" placeholder="Confirm new password"><button class="pw-eye" type="button" onclick="togglePwField('pw-confirm')">👁</button></div>
-        <button class="ibtn ibtn-primary" style="width:100%;justify-content:center;margin-top:0.4rem" onclick="changePassword()">Update Password</button>
-        <div class="msg-line" id="pw-msg"></div>
-      </div>
-      <div class="settings-section">
-        <div class="settings-section-title">☁️ Backup & Restore</div>
-        <div style="display:flex;flex-direction:column;gap:0.5rem">
-          <button class="ibtn ibtn-primary" style="width:100%;justify-content:center" onclick="downloadBackup()">⬇ Download Backup (.json)</button>
-          <label class="ibtn ibtn-ghost" style="width:100%;justify-content:center;cursor:pointer">
-            ⬆ Restore from Backup
-            <input type="file" accept=".json" style="display:none" onchange="restoreBackup(this)">
-          </label>
+      <hr class="divider">
+
+      <!-- Change Password -->
+      <p class="section-title">🔑 Change Password</p>
+      <div class="pw-section">
+        <div class="pw-row">
+          <input type="password" id="pw-current" placeholder="Current password">
+          <button class="pw-eye" onclick="togglePwField('pw-current')">👁</button>
         </div>
-        <p style="font-size:0.72rem;color:var(--muted);margin-top:0.6rem;line-height:1.5">Save backup to iCloud Drive to restore on any device including all documents.</p>
-      </div>
-      <div class="settings-section">
-        <div class="settings-section-title">📱 Add to Home Screen</div>
-        <div class="settings-card">
-          <div class="settings-row"><div class="settings-row-left"><div class="settings-row-label">1. Open in Safari</div><div class="settings-row-hint">Must be Safari, not Chrome</div></div></div>
-          <div class="settings-row"><div class="settings-row-left"><div class="settings-row-label">2. Tap Share button</div><div class="settings-row-hint">Box with arrow at bottom</div></div></div>
-          <div class="settings-row"><div class="settings-row-left"><div class="settings-row-label">3. Add to Home Screen</div><div class="settings-row-hint">Scroll down in share sheet</div></div></div>
-          <div class="settings-row"><div class="settings-row-left"><div class="settings-row-label">4. Always open from icon</div><div class="settings-row-hint">Not from Safari — keeps data permanent</div></div></div>
+        <div class="pw-row">
+          <input type="password" id="pw-new" placeholder="New password">
+          <button class="pw-eye" onclick="togglePwField('pw-new')">👁</button>
         </div>
+        <div class="pw-row">
+          <input type="password" id="pw-confirm" placeholder="Confirm new password">
+          <button class="pw-eye" onclick="togglePwField('pw-confirm')">👁</button>
+        </div>
+        <button class="btn bp" style="width:100%;justify-content:center" onclick="changePassword()">Update Password</button>
+        <div id="pw-msg" style="font-size:0.78rem;text-align:center;min-height:1rem;font-family:'IBM Plex Mono',monospace"></div>
       </div>
-      <button class="ibtn" style="width:100%;justify-content:center;background:#fff0ee;color:var(--accent);border:1.5px solid #f5c6c2;border-radius:12px;padding:0.75rem" onclick="lockApp()">🔒 Lock App</button>
+
+      <hr class="divider">
+
+      <!-- iPhone Setup -->
+      <p class="section-title">📱 Add to iPhone Home Screen</p>
+      <div class="setup-steps">
+        <div class="step"><div class="step-num">1</div><div class="step-text"><strong>Open in Safari</strong>Must be Safari on iPhone, not Chrome.</div></div>
+        <div class="step"><div class="step-num">2</div><div class="step-text"><strong>Tap the Share button</strong>Box with arrow at the bottom of Safari.</div></div>
+        <div class="step"><div class="step-num">3</div><div class="step-text"><strong>Tap "Add to Home Screen"</strong>Scroll down in the share sheet to find it.</div></div>
+        <div class="step"><div class="step-num">4</div><div class="step-text"><strong>Always open from the icon</strong>Not from Safari. This keeps data permanently stored.</div></div>
+      </div>
+
+      <hr class="divider">
+
+      <!-- Backup -->
+      <p class="section-title">☁️ Backup & Restore</p>
+      <div style="display:flex;flex-direction:column;gap:0.6rem">
+        <button class="btn bp" style="width:100%;justify-content:center" onclick="downloadBackup()">⬇ Download Backup (.json)</button>
+        <label class="btn bg" style="width:100%;justify-content:center;cursor:pointer">
+          ⬆ Restore from Backup
+          <input type="file" accept=".json" style="display:none" onchange="restoreBackup(this)">
+        </label>
+      </div>
+      <p style="font-size:0.71rem;color:var(--muted);margin-top:0.7rem;line-height:1.5">Save backup to iCloud Drive. Restore on any device to recover all entries and documents.</p>
+
+      <hr class="divider">
+
+      <!-- Lock -->
+      <button class="btn bg" style="width:100%;justify-content:center;color:var(--accent);border-color:var(--accent)" onclick="lockApp()">🔒 Lock App</button>
     </div>
-  </div>
-</div>
-
-<!-- ══ DOCUMENT SCANNER ══════════════════════════════════════════════════════ -->
-
-<div id="scanner-overlay" style="display:none;position:fixed;inset:0;z-index:2000;background:#000;flex-direction:column">
-  <div style="position:relative;flex:1;overflow:hidden" id="scanner-view">
-    <video id="scanner-video" autoplay playsinline muted style="width:100%;height:100%;object-fit:cover;display:block"></video>
-    <canvas id="scanner-guide" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none"></canvas>
-    <div id="scan-status" style="position:absolute;top:calc(env(safe-area-inset-top,44px)+12px);left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.6);backdrop-filter:blur(8px);color:#fff;font-size:0.78rem;font-family:'Inter',sans-serif;padding:0.4rem 1rem;border-radius:20px;white-space:nowrap;letter-spacing:0.02em">
-      🔍 Looking for document…
-    </div>
-    <button id="flash-btn" onclick="toggleFlash()" style="position:absolute;top:calc(env(safe-area-inset-top,44px)+10px);right:1rem;background:rgba(0,0,0,0.5);border:none;color:#fff;font-size:1.3rem;width:42px;height:42px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center">⚡</button>
-  </div>
-  <div style="background:#111;padding:1.2rem 2rem calc(env(safe-area-inset-bottom,0px)+1.2rem);display:flex;align-items:center;justify-content:space-between;gap:1rem">
-    <button onclick="closeScanner()" style="background:rgba(255,255,255,0.12);border:none;color:#fff;font-size:0.82rem;font-family:'Inter',sans-serif;padding:0.6rem 1.2rem;border-radius:20px;cursor:pointer">Cancel</button>
-    <button id="shutter-btn" onclick="captureFrame()" style="width:72px;height:72px;border-radius:50%;background:#fff;border:4px solid rgba(255,255,255,0.4);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1.8rem;box-shadow:0 0 0 6px rgba(255,255,255,0.15);transition:transform 0.1s">📸</button>
-    <button onclick="captureManual()" style="background:rgba(255,255,255,0.12);border:none;color:#fff;font-size:0.82rem;font-family:'Inter',sans-serif;padding:0.6rem 1.2rem;border-radius:20px;cursor:pointer">Manual</button>
-  </div>
-</div>
-
-<!-- CROP REVIEW -->
-
-<div id="crop-overlay" style="display:none;position:fixed;inset:0;z-index:2100;background:#000;flex-direction:column;align-items:center">
-  <div style="padding:calc(env(safe-area-inset-top,44px)+12px) 1rem 0.75rem;display:flex;align-items:center;justify-content:space-between;width:100%;background:#111">
-    <button onclick="retakeScan()" style="background:none;border:none;color:#fff;font-size:0.9rem;font-family:'Inter',sans-serif;padding:0.4rem 0.6rem;cursor:pointer">↩ Retake</button>
-    <span style="color:#fff;font-size:0.9rem;font-weight:600;font-family:'Inter',sans-serif">Review Scan</span>
-    <button onclick="confirmScan()" style="background:#4cd964;border:none;color:#000;font-size:0.9rem;font-weight:700;font-family:'Inter',sans-serif;padding:0.45rem 1rem;border-radius:12px;cursor:pointer">Use ✓</button>
-  </div>
-  <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:1rem;width:100%;overflow:hidden">
-    <canvas id="crop-canvas" style="max-width:100%;max-height:100%;border-radius:8px;box-shadow:0 4px 32px rgba(0,0,0,0.6)"></canvas>
-  </div>
-  <div style="padding:0.75rem 1rem calc(env(safe-area-inset-bottom,0px)+0.75rem);display:flex;gap:0.6rem;justify-content:center;background:#111;width:100%">
-    <button onclick="setScanMode('color')" id="mode-color" class="scan-mode-btn active">🎨 Color</button>
-    <button onclick="setScanMode('gray')" id="mode-gray" class="scan-mode-btn">🔲 Grayscale</button>
-    <button onclick="setScanMode('bw')" id="mode-bw" class="scan-mode-btn">📄 B&amp;W</button>
   </div>
 </div>
 
@@ -570,263 +422,153 @@ padding-bottom:calc(var(–sb)+0.5rem);
 
 <script>
 // ── PASSWORD ──────────────────────────────────────────────────────────────────
-const DEFAULT_PW='Invoices2026', PW_KEY='ilpw_v1';
-let failCount=0, lockUntil=0;
-function getStoredPw(){return localStorage.getItem(PW_KEY)||DEFAULT_PW}
-function tryLogin(){
-  const now=Date.now();
-  if(now<lockUntil){const s=Math.ceil((lockUntil-now)/1000);setErr('Locked. Try in '+s+'s.');return}
-  const v=document.getElementById('pw-input').value;
-  if(v===getStoredPw()){
-    failCount=0;
-    document.getElementById('login-screen').style.display='none';
-    document.getElementById('app').style.display='block';
-    document.getElementById('pw-input').value='';
+const DEFAULT_PW = 'Invoices2026';
+const PW_KEY = 'ilpw_v1';
+let failCount = 0;
+let lockUntil = 0;
+
+function getStoredPw() {
+  return localStorage.getItem(PW_KEY) || DEFAULT_PW;
+}
+function tryLogin() {
+  const now = Date.now();
+  if (now < lockUntil) {
+    const secs = Math.ceil((lockUntil - now) / 1000);
+    document.getElementById('login-err').textContent = `Too many attempts. Wait ${secs}s.`;
+    return;
+  }
+  const val = document.getElementById('pw-input').value;
+  if (val === getStoredPw()) {
+    failCount = 0;
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    document.getElementById('pw-input').value = '';
     initApp();
   } else {
     failCount++;
-    const inp=document.getElementById('pw-input');
-    inp.classList.add('err');setTimeout(()=>inp.classList.remove('err'),400);
-    if(failCount>=5){lockUntil=Date.now()+30000;failCount=0;countdownTick();setErr('Too many attempts. Locked 30s.');}
-    else setErr('Wrong password. '+(5-failCount)+' attempt'+(5-failCount===1?'':'s')+' left.');
+    const inp = document.getElementById('pw-input');
+    inp.classList.add('error','shake');
+    setTimeout(()=>inp.classList.remove('shake'),400);
+    if (failCount >= 5) {
+      lockUntil = Date.now() + 30000;
+      failCount = 0;
+      startLockCountdown();
+      document.getElementById('login-err').textContent = 'Too many attempts. Locked for 30s.';
+    } else {
+      document.getElementById('login-err').textContent = `Incorrect password. ${5-failCount} attempt${5-failCount===1?'':'s'} remaining.`;
+      document.getElementById('login-attempts').textContent = '';
+    }
   }
 }
-function setErr(m){document.getElementById('login-err').textContent=m}
-function countdownTick(){const i=setInterval(()=>{const r=Math.ceil((lockUntil-Date.now())/1000);if(r<=0){clearInterval(i);setErr('');}else setErr('Locked. Try in '+r+'s.');},1000)}
-function toggleEye(){const i=document.getElementById('pw-input');i.type=i.type==='password'?'text':'password'}
-function togglePwField(id){const i=document.getElementById(id);i.type=i.type==='password'?'text':'password'}
-function changePassword(){
-  const cur=document.getElementById('pw-current').value;
-  const nw=document.getElementById('pw-new').value;
-  const cf=document.getElementById('pw-confirm').value;
-  const msg=document.getElementById('pw-msg');
-  if(cur!==getStoredPw()){msg.style.color='var(--accent)';msg.textContent='Current password incorrect.';return}
-  if(nw.length<4){msg.style.color='var(--accent)';msg.textContent='At least 4 characters needed.';return}
-  if(nw!==cf){msg.style.color='var(--accent)';msg.textContent="Passwords don't match.";return}
-  localStorage.setItem(PW_KEY,nw);
-  ['pw-current','pw-new','pw-confirm'].forEach(id=>document.getElementById(id).value='');
-  msg.style.color='var(--green)';msg.textContent='✓ Password updated.';
-  setTimeout(()=>msg.textContent='',3000);
+function startLockCountdown() {
+  const interval = setInterval(()=>{
+    const rem = Math.ceil((lockUntil - Date.now())/1000);
+    if (rem <= 0) {
+      clearInterval(interval);
+      document.getElementById('login-err').textContent = '';
+      document.getElementById('login-attempts').textContent = '';
+    } else {
+      document.getElementById('login-err').textContent = `Locked. Try again in ${rem}s.`;
+    }
+  }, 1000);
 }
-function lockApp(){
-  closeSheet('setup-overlay');
-  document.getElementById('app').style.display='none';
-  document.getElementById('login-screen').style.display='flex';
-  document.getElementById('pw-input').value='';setErr('');
+function toggleEye() {
+  const inp = document.getElementById('pw-input');
+  inp.type = inp.type === 'password' ? 'text' : 'password';
 }
-
-// ── API KEY ───────────────────────────────────────────────────────────────────
-const AK_KEY='cns_api_key';
-function getApiKey(){return localStorage.getItem(AK_KEY)||''}
-function saveApiKey(k){localStorage.setItem(AK_KEY,k.trim())}
-function hasApiKey(){return !!getApiKey()}
-function saveApiKeyFromInput(){
-  const k=document.getElementById('api-key-input').value.trim();
-  const msg=document.getElementById('apikey-msg');
-  if(!k){msg.style.color='var(--accent)';msg.textContent='Please enter your API key.';return}
-  if(!k.startsWith('sk-ant-')){msg.style.color='var(--accent)';msg.textContent='Key should start with sk-ant-';return}
-  saveApiKey(k);
-  msg.style.color='var(--green)';msg.textContent='✓ API key saved on this device.';
-  setTimeout(()=>msg.textContent='',3000);
+function togglePwField(id) {
+  const inp = document.getElementById(id);
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+}
+function changePassword() {
+  const cur = document.getElementById('pw-current').value;
+  const nw  = document.getElementById('pw-new').value;
+  const cf  = document.getElementById('pw-confirm').value;
+  const msg = document.getElementById('pw-msg');
+  if (cur !== getStoredPw()) { msg.style.color='var(--accent)'; msg.textContent='Current password is incorrect.'; return; }
+  if (nw.length < 4) { msg.style.color='var(--accent)'; msg.textContent='New password must be at least 4 characters.'; return; }
+  if (nw !== cf) { msg.style.color='var(--accent)'; msg.textContent='Passwords do not match.'; return; }
+  localStorage.setItem(PW_KEY, nw);
+  document.getElementById('pw-current').value='';
+  document.getElementById('pw-new').value='';
+  document.getElementById('pw-confirm').value='';
+  msg.style.color='var(--green)'; msg.textContent='✓ Password updated successfully.';
+  setTimeout(()=>msg.textContent='', 3000);
+}
+function lockApp() {
+  closeModal('setup-overlay');
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('pw-input').value = '';
+  document.getElementById('login-err').textContent = '';
 }
 
 // ── IndexedDB ─────────────────────────────────────────────────────────────────
-const DB_NAME='invoiceLedger',DB_VER=1,STORE='entries';
+const DB_NAME='invoiceLedger', DB_VER=1, STORE='entries';
 let db=null;
-function openDB(){return new Promise((res,rej)=>{const req=indexedDB.open(DB_NAME,DB_VER);req.onupgradeneeded=e=>e.target.result.createObjectStore(STORE,{keyPath:'id'});req.onsuccess=e=>{db=e.target.result;res(db)};req.onerror=()=>rej(req.error)})}
+function openDB(){
+  return new Promise((res,rej)=>{
+    const req=indexedDB.open(DB_NAME,DB_VER);
+    req.onupgradeneeded=e=>e.target.result.createObjectStore(STORE,{keyPath:'id'});
+    req.onsuccess=e=>{db=e.target.result;res(db)};
+    req.onerror=()=>rej(req.error);
+  });
+}
 function dbGetAll(){return new Promise((res,rej)=>{const tx=db.transaction(STORE,'readonly');const req=tx.objectStore(STORE).getAll();req.onsuccess=()=>res(req.result||[]);req.onerror=()=>rej(req.error)})}
 function dbPut(e){return new Promise((res,rej)=>{const tx=db.transaction(STORE,'readwrite');const req=tx.objectStore(STORE).put(e);req.onsuccess=()=>res();req.onerror=()=>rej(req.error)})}
 function dbDel(id){return new Promise((res,rej)=>{const tx=db.transaction(STORE,'readwrite');const req=tx.objectStore(STORE).delete(id);req.onsuccess=()=>res();req.onerror=()=>rej(req.error)})}
 
 // ── State ─────────────────────────────────────────────────────────────────────
-let entries=[],editId=null,pendingDoc=null,filteredEntries=[];
+let entries=[], editId=null, pendingDoc=null;
 
-async function initApp(){
+async function initApp() {
   await openDB();
-  entries=await dbGetAll();
+  entries = await dbGetAll();
   entries.sort((a,b)=>new Date(b.addedAt)-new Date(a.addedAt));
-  filteredEntries=[...entries];
-  render();updateStats();buildFilterOptions();
-  if(!hasApiKey()) setTimeout(()=>toast('Tap ⚙ Settings to enter your API key',false),600);
+  render(); updateStats();
 }
 
 // ── Upload ────────────────────────────────────────────────────────────────────
-function triggerUpload(){
-  if(!hasApiKey()){showSetup();toast('Enter your API key in Settings first.',true);return}
-  document.getElementById('fileinput').click();
-}
-function triggerCamera(){
-  if(!hasApiKey()){showSetup();toast('Enter your API key in Settings first.',true);return}
-  openScanner();
-}
+function triggerUpload(){document.getElementById('fileinput').click()}
 function handleFile(inp){if(inp.files[0])processFile(inp.files[0]);inp.value=''}
-function scrollToTop(){window.scrollTo({top:0,behavior:'smooth'})}
+function doDrag(e,on){e.preventDefault();document.getElementById('dropzone').classList.toggle('over',on)}
+function doDrop(e){e.preventDefault();document.getElementById('dropzone').classList.remove('over');if(e.dataTransfer.files[0])processFile(e.dataTransfer.files[0])}
 
 function processFile(file){
   const reader=new FileReader();
   reader.onload=async ev=>{
-    const original=ev.target.result;
-    const isPdf=file.type==='application/pdf';
-    let finalUrl=original, finalMime=file.type;
-    if(!isPdf){
-      setProc(true,'Enhancing image…');
-      try{finalUrl=await enhanceImage(original);finalMime='image/jpeg';}
-      catch(e){finalUrl=original;finalMime=file.type;}
-    }
-    pendingDoc={dataUrl:finalUrl,mime:finalMime,name:file.name};
-    await extractAI(finalUrl,finalMime);
+    pendingDoc={dataUrl:ev.target.result,mime:file.type,name:file.name};
+    await extractAI(ev.target.result,file.type);
   };
   reader.readAsDataURL(file);
 }
 
-// ── Image Enhancement ─────────────────────────────────────────────────────────
-function enhanceImage(dataUrl){
-  return new Promise((resolve,reject)=>{
-    const img=new Image();
-    img.onload=()=>{
-      const canvas=document.createElement('canvas');
-      const maxDim=2400;
-      const scale=Math.min(maxDim/Math.max(img.width,img.height),2.5);
-      canvas.width=img.width*(scale>1?scale:1);
-      canvas.height=img.height*(scale>1?scale:1);
-      const ctx=canvas.getContext('2d');
-      ctx.drawImage(img,0,0,canvas.width,canvas.height);
-      const imageData=ctx.getImageData(0,0,canvas.width,canvas.height);
-      const d=imageData.data;
-      const len=d.length;
-      let minV=255,maxV=0;
-      for(let i=0;i<len;i+=4){const g=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];if(g<minV)minV=g;if(g>maxV)maxV=g;}
-      const range=maxV-minV||1;
-      for(let i=0;i<len;i+=4){
-        let g=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];
-        g=((g-minV)/range)*255;
-        if(g>200) g=Math.min(255,g*1.08);
-        else if(g<80) g=Math.max(0,g*0.7);
-        g=Math.max(0,Math.min(255,g));
-        d[i]=d[i+1]=d[i+2]=g;
-      }
-      ctx.putImageData(imageData,0,0);
-      const sharp=ctx.getImageData(0,0,canvas.width,canvas.height);
-      const src=new Uint8ClampedArray(sharp.data);
-      const w=canvas.width,h=canvas.height;
-      const k=[0,-0.5,0,-0.5,3,-0.5,0,-0.5,0];
-      for(let y=1;y<h-1;y++){
-        for(let x=1;x<w-1;x++){
-          const idx=(y*w+x)*4;
-          let v=0;
-          for(let ky=-1;ky<=1;ky++)for(let kx=-1;kx<=1;kx++)v+=src[((y+ky)*w+(x+kx))*4]*k[(ky+1)*3+(kx+1)];
-          v=Math.max(0,Math.min(255,v));
-          sharp.data[idx]=sharp.data[idx+1]=sharp.data[idx+2]=v;
-        }
-      }
-      ctx.putImageData(sharp,0,0);
-      resolve(canvas.toDataURL('image/jpeg',0.92));
-    };
-    img.onerror=reject;
-    img.src=dataUrl;
-  });
-}
-
-// ── AI Extraction ─────────────────────────────────────────────────────────────
 async function extractAI(dataUrl,mime){
-  setProc(true,'Extracting invoice data…');
+  setProc(true);
+  const apiKey=localStorage.getItem('cns_api_key')||'';
+  if(!apiKey){setProc(false);toast('Set your API key in Settings ⚙ first.',true);openForm({},true);return;}
   try{
     const b64=dataUrl.split(',')[1];
     const isPdf=mime==='application/pdf';
-    const imageMime=isPdf?'application/pdf':(mime.startsWith('image/')?mime:'image/jpeg');
-    const prompt=`Look at this invoice carefully. Return ONLY a raw JSON object, no markdown, no explanation:
-{"date":"invoice date as YYYY-MM-DD or empty","matricule":"patient matricule or social security number or empty","patientName":"full patient name or empty","invoiceNo":"invoice reference number or empty","doctor":"doctor or clinic name or empty","description":"medical service description or empty","amount":"total amount as number string like 36.00 or empty"}`;
-    const contentBlock=isPdf
+    const docContent=isPdf
       ?{type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}}
-      :{type:'image',source:{type:'base64',media_type:imageMime,data:b64}};
+      :{type:'image',source:{type:'base64',media_type:mime,data:b64}};
     const res=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{
-        'Content-Type':'application/json',
-        'x-api-key':getApiKey(),
-        'anthropic-version':'2023-06-01',
-        'anthropic-dangerous-direct-browser-access':'true'
-      },
-      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:512,
-        messages:[{role:'user',content:[contentBlock,{type:'text',text:prompt}]}]})
+      method:'POST',headers:{'Content-Type':'application/json','x-api-key':apiKey,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,
+        messages:[{role:'user',content:[docContent,
+          {type:'text',text:`Extract invoice data and return ONLY a JSON object, no other text:
+{"date":"YYYY-MM-DD or empty","matricule":"patient ID or matricule","patientName":"full patient name","invoiceNo":"invoice reference number","doctor":"doctor or provider name","description":"service description","amount":"numeric total only"}`}
+        ]}]})
     });
     const data=await res.json();
-    if(data.error){setProc(false);showBanner('API Error: '+data.error.message);openForm({},true);return}
     const txt=(data.content||[]).map(c=>c.text||'').join('');
-    const m=txt.match(/\{[\s\S]*\}/);
-    if(!m){setProc(false);showBanner('Could not parse response: '+txt.substring(0,100));openForm({},true);return}
-    const parsed=JSON.parse(m[0]);
+    const parsed=JSON.parse(txt.replace(/```json|```/g,'').trim());
     setProc(false);openForm(parsed,true);
-  }catch(err){setProc(false);showBanner('Error: '+err.message);openForm({},true);}
+  }catch(err){setProc(false);toast('Could not read invoice — fill in manually.',true);openForm({},true)}
 }
 
-function showBanner(msg){
-  let b=document.getElementById('err-banner');
-  if(!b){b=document.createElement('div');b.id='err-banner';b.className='err-banner';b.onclick=()=>b.remove();document.body.appendChild(b);}
-  b.innerHTML='⚠️ <strong>Extraction failed</strong> — tap to dismiss<br><span style="font-size:0.7rem;font-family:monospace">'+msg+'</span>';
-  setTimeout(()=>{if(b.parentNode)b.remove();},12000);
-}
-
-// ── API Test ──────────────────────────────────────────────────────────────────
-async function testAPI(){
-  const box=document.getElementById('test-result');
-  box.style.display='block';box.style.color='var(--muted)';box.textContent='Testing Claude API…';
-  try{
-    const res=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','x-api-key':getApiKey(),'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
-      body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:30,messages:[{role:'user',content:'Reply with: {"ok":true}'}]})
-    });
-    const data=await res.json();
-    if(data.error){box.style.color='var(--accent)';box.textContent='❌ Error: '+data.error.type+'\n'+data.error.message;}
-    else{const t=(data.content||[]).map(c=>c.text||'').join('');box.style.color='var(--green)';box.textContent='✅ Claude is connected!\n\nResponse: '+t+'\n\nScanning will work.';}
-  }catch(e){box.style.color='var(--accent)';box.textContent='❌ Network error: '+e.message;}
-}
-
-// ── Filters ───────────────────────────────────────────────────────────────────
-function buildFilterOptions(){
-  const mats=new Set(entries.map(e=>e.matricule).filter(Boolean));
-  const months=new Set(entries.map(e=>e.date?e.date.substring(0,7):null).filter(Boolean));
-  const matSel=document.getElementById('filter-mat');
-  const monthSel=document.getElementById('filter-month');
-  const curMat=matSel.value, curMonth=monthSel.value;
-  monthSel.innerHTML='<option value="">All Months</option>';
-  [...months].sort().reverse().forEach(m=>{
-    const opt=document.createElement('option');opt.value=m;opt.textContent=formatMonth(m);monthSel.appendChild(opt);
-  });
-  matSel.innerHTML='<option value="">All Matricules</option>';
-  [...mats].sort().forEach(mat=>{
-    const opt=document.createElement('option');opt.value=mat;opt.textContent=mat;matSel.appendChild(opt);
-  });
-  if(curMat)matSel.value=curMat;
-  if(curMonth)monthSel.value=curMonth;
-}
-function formatMonth(ym){
-  try{const d=new Date(ym+'-01');return d.toLocaleString('default',{month:'long',year:'numeric'});}catch{return ym;}
-}
-function applyFilters(){
-  const mat=document.getElementById('filter-mat').value;
-  const month=document.getElementById('filter-month').value;
-  filteredEntries=entries.filter(e=>{
-    const matchMat=!mat||e.matricule===mat;
-    const matchMonth=!month||(e.date&&e.date.startsWith(month));
-    return matchMat&&matchMonth;
-  });
-  const hasFilter=mat||month;
-  document.getElementById('filter-clear-btn').classList.toggle('show',hasFilter);
-  document.getElementById('sf').textContent=hasFilter?filteredEntries.length+' shown':'All';
-  render();
-}
-function clearFilters(){
-  document.getElementById('filter-mat').value='';
-  document.getElementById('filter-month').value='';
-  filteredEntries=[...entries];
-  document.getElementById('filter-clear-btn').classList.remove('show');
-  document.getElementById('sf').textContent='All';
-  render();
-}
-
-// ── Form Sheet ────────────────────────────────────────────────────────────────
+// ── Form ──────────────────────────────────────────────────────────────────────
 function openForm(data={},ai=false){
   editId=null;
   document.getElementById('form-title').textContent=ai?'Review Extracted Data':'New Invoice';
@@ -835,7 +577,7 @@ function openForm(data={},ai=false){
   setFields(data);
   document.getElementById('form-overlay').classList.add('on');
 }
-function openManual(){pendingDoc=null;openForm({},false);}
+function openManual(){pendingDoc=null;openForm({},false)}
 function openEdit(id){
   const e=entries.find(x=>x.id===id);if(!e)return;
   editId=id;pendingDoc=null;
@@ -854,11 +596,21 @@ function setFields(d){
   document.getElementById('f-desc').value=d.description||'';
   document.getElementById('f-amt').value=d.amount||'';
 }
-function closeSheet(id){document.getElementById(id).classList.remove('on')}
-function overlayTap(e,id){if(e.target===document.getElementById(id))closeSheet(id)}
+function closeModal(id){document.getElementById(id).classList.remove('on')}
+function overlayTap(e,id){if(e.target===document.getElementById(id))closeModal(id)}
 function showSetup(){
-  const k=getApiKey();if(k)document.getElementById('api-key-input').value=k;
+  const stored=localStorage.getItem('cns_api_key')||'';
+  const inp=document.getElementById('api-key-input');
+  if(inp) inp.value=stored;
   document.getElementById('setup-overlay').classList.add('on');
+}
+function saveApiKey(){
+  const val=document.getElementById('api-key-input').value.trim();
+  const msg=document.getElementById('api-key-msg');
+  if(!val){msg.style.color='var(--accent)';msg.textContent='Please enter your API key.';return;}
+  localStorage.setItem('cns_api_key',val);
+  msg.style.color='var(--green)';msg.textContent='✓ API key saved.';
+  setTimeout(()=>msg.textContent='',3000);
 }
 
 // ── Save ──────────────────────────────────────────────────────────────────────
@@ -882,16 +634,13 @@ async function saveEntry(){
     entries[entries.findIndex(x=>x.id===editId)]=entry;
   }else{
     entry.id='e'+Date.now();
-    if(pendingDoc){entry.docData=pendingDoc.dataUrl;entry.docMime=pendingDoc.mime;entry.docName=pendingDoc.name;}
+    if(pendingDoc){entry.docData=pendingDoc.dataUrl;entry.docMime=pendingDoc.mime;entry.docName=pendingDoc.name}
     entries.unshift(entry);
   }
   await dbPut(entry);
   pendingDoc=null;editId=null;
-  closeSheet('form-overlay');
-  filteredEntries=[...entries];
-  applyFilters();
-  buildFilterOptions();
-  updateStats();
+  closeModal('form-overlay');
+  render();updateStats();
   toast('Invoice saved ✓');
 }
 
@@ -900,8 +649,7 @@ async function del(id){
   if(!confirm('Delete this invoice entry?'))return;
   entries=entries.filter(e=>e.id!==id);
   await dbDel(id);
-  filteredEntries=filteredEntries.filter(e=>e.id!==id);
-  render();updateStats();buildFilterOptions();toast('Entry deleted.');
+  render();updateStats();toast('Entry deleted.');
 }
 
 // ── View Doc ──────────────────────────────────────────────────────────────────
@@ -918,39 +666,21 @@ function viewDoc(id){
 
 // ── Render ────────────────────────────────────────────────────────────────────
 function render(){
-  const list=document.getElementById('inv-list');
-  const src=filteredEntries;
-  if(!src.length){
-    list.innerHTML=`<div class="empty-state"><div class="empty-icon">📂</div><div class="empty-title">${entries.length?'No results for filter':'No invoices yet'}</div><div class="empty-hint">${entries.length?'Try clearing the filters above.':'Tap Camera Scan or Upload File to add your first invoice.'}</div></div>`;
-    return;
-  }
-  list.innerHTML=src.map((e,i)=>`
-    <div class="inv-card" style="animation-delay:${i*0.04}s">
-      <div class="inv-card-top">
-        ${e.docData
-          ?(e.docMime==='application/pdf'
-            ?`<div class="inv-doc-pdf" onclick="viewDoc('${e.id}')">📄</div>`
-            :`<img src="${e.docData}" class="inv-doc-thumb" onclick="viewDoc('${e.id}')" alt="doc">`)
-          :`<div class="inv-doc-none">📋</div>`}
-        <div class="inv-main">
-          <div class="inv-patient">${esc(e.patientName)||'Unknown Patient'}</div>
-          <div class="inv-doctor">${esc(e.doctor)||'—'}</div>
-          ${e.description?`<div class="inv-desc">${esc(e.description)}</div>`:''}
-        </div>
-        <div class="inv-amount">€${Number(e.amount).toFixed(2)}</div>
-      </div>
-      <div class="inv-card-bottom">
-        <div class="inv-meta">
-          ${e.date?`<span class="inv-chip">${e.date}</span>`:''}
-          ${e.invoiceNo?`<span class="inv-chip blue">${esc(e.invoiceNo)}</span>`:''}
-          ${e.matricule?`<span class="inv-chip">${esc(e.matricule)}</span>`:''}
-        </div>
-        <div class="inv-actions">
-          <button class="act-btn" onclick="openEdit('${e.id}')">✏️</button>
-          <button class="act-btn del" onclick="del('${e.id}')">🗑</button>
-        </div>
-      </div>
-    </div>`).join('');
+  const tb=document.getElementById('tbody');
+  if(!entries.length){tb.innerHTML=`<tr><td colspan="10"><div class="empty"><div class="emptyicon">📂</div><div class="emptytitle">No invoices yet</div><div>Tap "📄 Scan" to add your first invoice.</div></div></td></tr>`;return}
+  tb.innerHTML=entries.map((e,i)=>`
+    <tr style="animation-delay:${i*0.03}s">
+      <td class="mono" style="color:var(--muted)">${entries.length-i}</td>
+      <td class="mono">${e.date||'—'}</td>
+      <td class="mono" style="font-size:0.67rem;color:var(--muted)">${esc(e.matricule)||'—'}</td>
+      <td style="font-weight:500">${esc(e.patientName)||'—'}</td>
+      <td class="mono" style="font-size:0.69rem;color:var(--accent2)">${esc(e.invoiceNo)||'—'}</td>
+      <td class="clip" title="${esc(e.doctor)}">${esc(e.doctor)||'—'}</td>
+      <td class="clip" title="${esc(e.description)}">${esc(e.description)||'—'}</td>
+      <td class="amt">€${Number(e.amount).toFixed(2)}</td>
+      <td>${e.docData?(e.docMime==='application/pdf'?`<div class="docpdf" onclick="viewDoc('${e.id}')">📄</div>`:`<img src="${e.docData}" class="docthumb" onclick="viewDoc('${e.id}')" alt="doc">`):('<span style="color:var(--muted);font-size:0.68rem">—</span>')}</td>
+      <td><div class="ra"><button class="btn bg bsm" onclick="openEdit('${e.id}')">✏️</button><button class="btn bdanger bsm" onclick="del('${e.id}')">🗑</button></div></td>
+    </tr>`).join('');
 }
 function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;')}
 
@@ -960,281 +690,60 @@ function updateStats(){
   const tot=entries.reduce((s,e)=>s+(Number(e.amount)||0),0);
   document.getElementById('st').textContent='€'+tot.toFixed(2);
   const latest=entries[0];
-  document.getElementById('sl').textContent=latest?(latest.date||'—'):'—';
+  document.getElementById('sl').textContent=latest?(latest.date||latest.invoiceNo||'—'):'—';
+  document.getElementById('sd').textContent=new Set(entries.map(e=>e.doctor).filter(Boolean)).size;
 }
-function setProc(on,msg='Processing…'){
-  document.getElementById('proc').classList.toggle('on',on);
-  if(on)document.getElementById('proc-msg').textContent=msg;
-}
-
-// ── Export ────────────────────────────────────────────────────────────────────
-function rows(){return filteredEntries.map(e=>({'Date':e.date||'','Matricule':e.matricule||'','Patient Name':e.patientName||'','Invoice No.':e.invoiceNo||'','Doctor':e.doctor||'','Description':e.description||'','Amount (€)':Number(e.amount).toFixed(2),'Document':e.docData?'Yes':'No'}))}
-function expCSV(){
-  const r=rows();if(!r.length){toast('No entries.',true);return}
-  const h=Object.keys(r[0]);
-  const csv=[h.join(','),...r.map(row=>h.map(k=>`"${(row[k]||'').replace(/"/g,'""')}"`).join(','))].join('\n');
-  dlFile('invoices.csv','text/csv',csv);toast('CSV exported.');
-}
-function expExcel(){
-  const r=rows();if(!r.length){toast('No entries.',true);return}
-  const ws=XLSX.utils.json_to_sheet(r),wb=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb,ws,'Invoices');XLSX.writeFile(wb,'invoices.xlsx');
-  toast('Excel exported.');
-}
-function expPDF(){
-  const r=rows();if(!r.length){toast('No entries.',true);return}
-  const tot=filteredEntries.reduce((s,e)=>s+(Number(e.amount)||0),0);
-  const trs=r.map(row=>`<tr><td>${row['Date']}</td><td>${row['Matricule']}</td><td>${row['Patient Name']}</td><td>${row['Invoice No.']}</td><td>${row['Doctor']}</td><td>${row['Description']}</td><td style="text-align:right;font-weight:600">€${row['Amount (€)']}</td></tr>`).join('');
-  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:-apple-system,sans-serif;padding:2cm;color:#1c1c1e}h1{font-size:18pt;margin-bottom:0.2cm}p{font-size:9pt;color:#888;margin-bottom:0.8cm}table{width:100%;border-collapse:collapse;font-size:8pt}th{background:#1c1c1e;color:white;padding:6px 8px;text-align:left}td{padding:5px 8px;border-bottom:1px solid #eee}tr:nth-child(even){background:#f9f9f9}.total{text-align:right;margin-top:0.6cm;font-size:11pt;font-weight:700}</style></head><body><h1>CNS Invoice Ledger</h1><p>Exported ${new Date().toLocaleDateString()} · ${r.length} entries</p><table><thead><tr><th>Date</th><th>Matricule</th><th>Patient</th><th>Invoice No.</th><th>Doctor</th><th>Description</th><th>Amount</th></tr></thead><tbody>${trs}</tbody></table><div class="total">Total: €${tot.toFixed(2)}</div></body></html>`;
-
-const w=window.open(’’,’_blank’);w.document.write(html);w.document.close();w.print();
-}
-function dlFile(name,type,content){const a=document.createElement(‘a’);a.href=URL.createObjectURL(new Blob([content],{type}));a.download=name;a.click()}
+function setProc(on){document.getElementById('proc').classList.toggle('on',on)}
 
 // ── Backup & Restore ──────────────────────────────────────────────────────────
 function downloadBackup(){
-const data=JSON.stringify({version:1,exported:new Date().toISOString(),entries},null,2);
-dlFile(`cns-backup-${new Date().toISOString().slice(0,10)}.json`,‘application/json’,data);
-toast(‘Backup downloaded — save to iCloud Drive ☁️’);
+  const data=JSON.stringify({version:1,exported:new Date().toISOString(),entries},null,2);
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([data],{type:'application/json'}));
+  a.download=`invoice-backup-${new Date().toISOString().slice(0,10)}.json`;a.click();
+  toast('Backup downloaded — save to iCloud Drive ☁️');
 }
 function restoreBackup(inp){
-const file=inp.files[0];if(!file)return;
-const reader=new FileReader();
-reader.onload=async ev=>{
-try{
-const data=JSON.parse(ev.target.result);
-if(!Array.isArray(data.entries))throw new Error();
-if(!confirm(`Restore ${data.entries.length} entries? Merges with existing.`))return;
-let added=0;
-for(const e of data.entries){if(!entries.find(x=>x.id===e.id)){entries.push(e);await dbPut(e);added++;}}
-entries.sort((a,b)=>new Date(b.addedAt)-new Date(a.addedAt));
-filteredEntries=[…entries];
-render();updateStats();buildFilterOptions();toast(`Restored ${added} entries ✓`);
-}catch{toast(‘Invalid backup file.’,true);}
-};
-reader.readAsText(file);inp.value=’’;
+  const file=inp.files[0];if(!file)return;
+  const reader=new FileReader();
+  reader.onload=async ev=>{
+    try{
+      const data=JSON.parse(ev.target.result);
+      if(!data.entries||!Array.isArray(data.entries))throw new Error();
+      if(!confirm(`Restore ${data.entries.length} entries? Merges with existing data.`))return;
+      let added=0;
+      for(const e of data.entries){if(!entries.find(x=>x.id===e.id)){entries.push(e);await dbPut(e);added++}}
+      entries.sort((a,b)=>new Date(b.addedAt)-new Date(a.addedAt));
+      render();updateStats();toast(`Restored ${added} entries ✓`);
+    }catch(err){toast('Invalid backup file.',true)}
+  };
+  reader.readAsText(file);inp.value='';
 }
+
+// ── Export ────────────────────────────────────────────────────────────────────
+function rows(){return entries.map(e=>({'Date':e.date||'','Matricule':e.matricule||'','Patient Name':e.patientName||'','Invoice No.':e.invoiceNo||'','Doctor':e.doctor||'','Description':e.description||'','Amount (€)':Number(e.amount).toFixed(2),'Document':e.docData?'Yes':'No'}))}
+function expCSV(){const r=rows();if(!r.length){toast('No entries.',true);return}const h=Object.keys(r[0]);const csv=[h.join(','),...r.map(row=>h.map(k=>`"${(row[k]||'').replace(/"/g,'""')}"`).join(','))].join('\n');dlFile('invoice-ledger.csv','text/csv',csv);toast('CSV exported.')}
+function expExcel(){const r=rows();if(!r.length){toast('No entries.',true);return}const ws=XLSX.utils.json_to_sheet(r),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Invoices');XLSX.writeFile(wb,'invoice-ledger.xlsx');toast('Excel exported.')}
+function expPDF(){
+  const r=rows();if(!r.length){toast('No entries.',true);return}
+  const tot=entries.reduce((s,e)=>s+(Number(e.amount)||0),0);
+  const trs=r.map(row=>`<tr><td>${row['Date']}</td><td>${row['Matricule']}</td><td>${row['Patient Name']}</td><td>${row['Invoice No.']}</td><td>${row['Doctor']}</td><td>${row['Description']}</td><td style="text-align:right;font-weight:600">€${row['Amount (€)']}</td></tr>`).join('');
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><style>body{font-family:Georgia,serif;padding:2cm;color:#111}h1{font-size:18pt;border-bottom:2px solid #b5341c;padding-bottom:0.4cm;margin-bottom:0.3cm}p{font-size:9pt;color:#666;margin-bottom:0.8cm}table{width:100%;border-collapse:collapse;font-size:8pt}th{background:#12100e;color:white;padding:6px 8px;text-align:left}td{padding:5px 8px;border-bottom:1px solid #ddd}tr:nth-child(even){background:#f8f5f0}.total{text-align:right;margin-top:0.6cm;font-size:11pt;font-weight:bold}</style></head><body><h1>Invoice Ledger</h1><p>Exported ${new Date().toLocaleDateString()} · ${r.length} entries</p><table><thead><tr><th>Date</th><th>Matricule</th><th>Patient</th><th>Invoice No.</th><th>Doctor</th><th>Description</th><th>Amount</th></tr></thead><tbody>${trs}</tbody></table><div class="total">Total: €${tot.toFixed(2)}</div></body></html>`;
+  const w=window.open('','_blank');w.document.write(html);w.document.close();w.print();
+}
+function dlFile(name,type,content){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([content],{type}));a.download=name;a.click()}
 
 // ── Toast ─────────────────────────────────────────────────────────────────────
 function toast(msg,err=false){
-const t=document.createElement(‘div’);t.className=‘toast’+(err?’ err’:’’);t.textContent=msg;
-document.getElementById(‘toasts’).appendChild(t);
-setTimeout(()=>{t.style.opacity=‘0’;t.style.transition=‘opacity 0.3s’;setTimeout(()=>t.remove(),300);},3000);
-}
-
-// ══════════════════════════════════════════════════════════════════════════════
-// DOCUMENT SCANNER ENGINE
-// ══════════════════════════════════════════════════════════════════════════════
-let scanStream=null, scanAnimFrame=null, capturedImageData=null;
-let flashOn=false, currentMode=‘color’, detectedCorners=null;
-const SCAN_W=640, SCAN_H=480;
-
-async function openScanner(){
-if(!hasApiKey()){showSetup();toast(‘Enter your API key in Settings first.’,true);return}
-const overlay=document.getElementById(‘scanner-overlay’);
-overlay.style.display=‘flex’;
-try{
-scanStream=await navigator.mediaDevices.getUserMedia({
-video:{facingMode:‘environment’,width:{ideal:1920},height:{ideal:1080}}
-});
-const video=document.getElementById(‘scanner-video’);
-video.srcObject=scanStream;
-video.onloadedmetadata=()=>{video.play();startEdgeDetection();}
-}catch(e){
-closeScanner();
-toast(‘Live scanner unavailable — using camera.’,false);
-setTimeout(()=>document.getElementById(‘camerainput’).click(),300);
-}
-}
-
-function closeScanner(){
-stopStream();
-document.getElementById(‘scanner-overlay’).style.display=‘none’;
-document.getElementById(‘crop-overlay’).style.display=‘none’;
-}
-function stopStream(){
-if(scanAnimFrame){cancelAnimationFrame(scanAnimFrame);scanAnimFrame=null}
-if(scanStream){scanStream.getTracks().forEach(t=>t.stop());scanStream=null}
-}
-
-async function toggleFlash(){
-if(!scanStream)return;
-const track=scanStream.getVideoTracks()[0];
-try{
-flashOn=!flashOn;
-await track.applyConstraints({advanced:[{torch:flashOn}]});
-document.getElementById(‘flash-btn’).style.color=flashOn?’#ffcc00’:’#fff’;
-}catch(e){toast(‘Flash not available on this device.’,true);flashOn=false;}
-}
-
-function startEdgeDetection(){
-const video=document.getElementById(‘scanner-video’);
-const guide=document.getElementById(‘scanner-guide’);
-const offscreen=document.createElement(‘canvas’);
-offscreen.width=SCAN_W;offscreen.height=SCAN_H;
-const octx=offscreen.getContext(‘2d’);
-let stable=0, lastCorners=null;
-function detect(){
-if(!scanStream)return;
-if(video.readyState<2){scanAnimFrame=requestAnimationFrame(detect);return}
-octx.drawImage(video,0,0,SCAN_W,SCAN_H);
-const frame=octx.getImageData(0,0,SCAN_W,SCAN_H);
-const corners=findDocumentCorners(frame,SCAN_W,SCAN_H);
-drawGuide(guide,corners,video.videoWidth||SCAN_W,video.videoHeight||SCAN_H);
-if(corners){
-detectedCorners=corners;
-if(lastCorners&&cornersClose(corners,lastCorners,20)){
-stable++;
-if(stable>15) setStatus(‘✅ Document detected — tap shutter’);
-else setStatus(‘📐 Hold steady…’);
-} else stable=0;
-lastCorners=corners;
-} else {stable=0;lastCorners=null;detectedCorners=null;setStatus(‘🔍 Aim at a document…’);}
-scanAnimFrame=requestAnimationFrame(detect);
-}
-detect();
-}
-
-function setStatus(msg){const el=document.getElementById(‘scan-status’);if(el)el.textContent=msg;}
-function cornersClose(a,b,thresh){return a.every((p,i)=>Math.abs(p.x-b[i].x)<thresh&&Math.abs(p.y-b[i].y)<thresh);}
-
-function drawGuide(canvas,corners,vw,vh){
-const rect=canvas.parentElement.getBoundingClientRect();
-canvas.width=rect.width;canvas.height=rect.height;
-const ctx=canvas.getContext(‘2d’);
-ctx.clearRect(0,0,canvas.width,canvas.height);
-if(!corners)return;
-const sx=rect.width/SCAN_W, sy=rect.height/SCAN_H;
-const pts=corners.map(p=>({x:p.x*sx,y:p.y*sy}));
-ctx.beginPath();ctx.moveTo(pts[0].x,pts[0].y);pts.slice(1).forEach(p=>ctx.lineTo(p.x,p.y));ctx.closePath();
-ctx.strokeStyle=’#4cd964’;ctx.lineWidth=2.5;ctx.stroke();
-ctx.fillStyle=‘rgba(76,217,100,0.08)’;ctx.fill();
-pts.forEach(p=>{ctx.beginPath();ctx.arc(p.x,p.y,6,0,Math.PI*2);ctx.fillStyle=’#4cd964’;ctx.fill();});
-}
-
-function findDocumentCorners(imageData,w,h){
-const d=imageData.data;
-const gray=new Uint8Array(w*h);
-for(let i=0;i<w*h;i++){const p=i*4;gray[i]=0.299*d[p]+0.587*d[p+1]+0.114*d[p+2];}
-const blurred=gaussianBlur(gray,w,h);
-const edges=sobelEdge(blurred,w,h);
-return findRectangleCorners(edges,w,h);
-}
-function gaussianBlur(gray,w,h){const k=[1,2,1,2,4,2,1,2,1];const out=new Uint8Array(w*h);for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){let s=0;for(let ky=-1;ky<=1;ky++)for(let kx=-1;kx<=1;kx++)s+=gray[(y+ky)*w+(x+kx)]*k[(ky+1)*3+(kx+1)];out[y*w+x]=s>>4;}return out;}
-function sobelEdge(gray,w,h){const out=new Uint8Array(w*h);const kx=[-1,0,1,-2,0,2,-1,0,1];const ky=[-1,-2,-1,0,0,0,1,2,1];for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){let gx=0,gy=0;for(let ky2=-1;ky2<=1;ky2++)for(let kx2=-1;kx2<=1;kx2++){const v=gray[(y+ky2)*w+(x+kx2)];gx+=v*kx[(ky2+1)*3+(kx2+1)];gy+=v*ky[(ky2+1)*3+(kx2+1)];}out[y*w+x]=Math.min(255,Math.sqrt(gx*gx+gy*gy));}return out;}
-function findRectangleCorners(edges,w,h){const threshold=40;const margin=w*0.08;let minX=w,maxX=0,minY=h,maxY=0,count=0;for(let y=margin;y<h-margin;y++)for(let x=margin;x<w-margin;x++)if(edges[y*w+x]>threshold){if(x<minX)minX=x;if(x>maxX)maxX=x;if(y<minY)minY=y;if(y>maxY)maxY=y;count++;}const boxW=maxX-minX,boxH=maxY-minY;if(count<500||boxW<w*0.25||boxH<h*0.25)return null;return[{x:minX,y:minY},{x:maxX,y:minY},{x:maxX,y:maxY},{x:minX,y:maxY}];}
-
-function captureFrame(){const btn=document.getElementById(‘shutter-btn’);btn.style.transform=‘scale(0.88)’;setTimeout(()=>btn.style.transform=’’,150);captureAndProcess(detectedCorners);}
-function captureManual(){captureAndProcess(null);}
-
-function captureAndProcess(corners){
-const video=document.getElementById(‘scanner-video’);
-const cap=document.createElement(‘canvas’);
-cap.width=video.videoWidth||1280;cap.height=video.videoHeight||720;
-cap.getContext(‘2d’).drawImage(video,0,0,cap.width,cap.height);
-let scaledCorners=null;
-if(corners){const sx=cap.width/SCAN_W,sy=cap.height/SCAN_H;scaledCorners=corners.map(p=>({x:p.x*sx,y:p.y*sy}));}
-if(scanAnimFrame){cancelAnimationFrame(scanAnimFrame);scanAnimFrame=null}
-const result=processCapture(cap,scaledCorners);
-showCropReview(result);
-}
-
-function processCapture(srcCanvas,corners){
-let srcPts,outW,outH;
-if(corners&&corners.length===4){
-srcPts=corners;
-const w1=dist(srcPts[0],srcPts[1]),w2=dist(srcPts[3],srcPts[2]);
-const h1=dist(srcPts[0],srcPts[3]),h2=dist(srcPts[1],srcPts[2]);
-outW=Math.round(Math.max(w1,w2));outH=Math.round(Math.max(h1,h2));
-} else {outW=srcCanvas.width;outH=srcCanvas.height;srcPts=[{x:0,y:0},{x:outW,y:0},{x:outW,y:outH},{x:0,y:outH}];}
-const maxOut=2200;
-if(outW>maxOut||outH>maxOut){const s=maxOut/Math.max(outW,outH);outW=Math.round(outW*s);outH=Math.round(outH*s);}
-const out=document.createElement(‘canvas’);out.width=outW;out.height=outH;
-const ctx=out.getContext(‘2d’);
-const dstPts=[{x:0,y:0},{x:outW,y:0},{x:outW,y:outH},{x:0,y:outH}];
-const H=computeHomography(srcPts,dstPts);
-const srcCtx=srcCanvas.getContext(‘2d’);
-const srcData=srcCtx.getImageData(0,0,srcCanvas.width,srcCanvas.height);
-const outData=ctx.createImageData(outW,outH);
-const Hinv=invertMatrix3(H);
-for(let y=0;y<outH;y++)for(let x=0;x<outW;x++){
-const src=applyHomography(Hinv,x,y);
-const sx=Math.round(src.x),sy=Math.round(src.y);
-const oi=(y*outW+x)*4;
-if(sx>=0&&sx<srcCanvas.width&&sy>=0&&sy<srcCanvas.height){const si=(sy*srcCanvas.width+sx)*4;outData.data[oi]=srcData.data[si];outData.data[oi+1]=srcData.data[si+1];outData.data[oi+2]=srcData.data[si+2];outData.data[oi+3]=255;}
-else outData.data[oi+3]=0;
-}
-ctx.putImageData(outData,0,0);
-capturedImageData={canvas:out,mode:‘color’};
-return out;
-}
-function dist(a,b){return Math.sqrt((b.x-a.x)**2+(b.y-a.y)**2)}
-
-function computeHomography(src,dst){
-const A=[],bv=[];
-for(let i=0;i<4;i++){const sx=src[i].x,sy=src[i].y,dx=dst[i].x,dy=dst[i].y;A.push([sx,sy,1,0,0,0,-dx*sx,-dx*sy]);bv.push(dx);A.push([0,0,0,sx,sy,1,-dy*sx,-dy*sy]);bv.push(dy);}
-const h=solveLinear8(A,bv);return[[h[0],h[1],h[2]],[h[3],h[4],h[5]],[h[6],h[7],1]];
-}
-function applyHomography(H,x,y){const w=H[2][0]*x+H[2][1]*y+H[2][2];return{x:(H[0][0]*x+H[0][1]*y+H[0][2])/w,y:(H[1][0]*x+H[1][1]*y+H[1][2])/w};}
-function solveLinear8(A,b){const n=8;const M=A.map((row,i)=>[…row,b[i]]);for(let col=0;col<n;col++){let pivot=col;for(let r=col+1;r<n;r++)if(Math.abs(M[r][col])>Math.abs(M[pivot][col]))pivot=r;[M[col],M[pivot]]=[M[pivot],M[col]];const div=M[col][col];for(let j=col;j<=n;j++)M[col][j]/=div;for(let r=0;r<n;r++){if(r===col)continue;const f=M[r][col];for(let j=col;j<=n;j++)M[r][j]-=f*M[col][j];}}return M.map(row=>row[n]);}
-function invertMatrix3(m){const a=m[0],b2=m[1],c=m[2];const det=a[0]*(b2[1]*c[2]-b2[2]*c[1])-a[1]*(b2[0]*c[2]-b2[2]*c[0])+a[2]*(b2[0]*c[1]-b2[1]*c[0]);const inv=1/det;return[[(b2[1]*c[2]-b2[2]*c[1])*inv,(a[2]*c[1]-a[1]*c[2])*inv,(a[1]*b2[2]-a[2]*b2[1])*inv],[(b2[2]*c[0]-b2[0]*c[2])*inv,(a[0]*c[2]-a[2]*c[0])*inv,(a[2]*b2[0]-a[0]*b2[2])*inv],[(b2[0]*c[1]-b2[1]*c[0])*inv,(a[1]*c[0]-a[0]*c[1])*inv,(a[0]*b2[1]-a[1]*b2[0])*inv]];}
-
-function showCropReview(srcCanvas){
-document.getElementById(‘scanner-overlay’).style.display=‘none’;
-document.getElementById(‘crop-overlay’).style.display=‘flex’;
-applyEnhancement(srcCanvas,‘color’);
-}
-function setScanMode(mode){
-currentMode=mode;
-[‘color’,‘gray’,‘bw’].forEach(m=>document.getElementById(‘mode-’+m).classList.toggle(‘active’,m===mode));
-if(capturedImageData)applyEnhancement(capturedImageData.canvas,mode);
-}
-
-function applyEnhancement(srcCanvas,mode){
-const preview=document.getElementById(‘crop-canvas’);
-preview.width=srcCanvas.width;preview.height=srcCanvas.height;
-const ctx=preview.getContext(‘2d’);ctx.drawImage(srcCanvas,0,0);
-const imgData=ctx.getImageData(0,0,preview.width,preview.height);
-const d=imgData.data;const len=d.length;
-let minR=255,maxR=0,minG=255,maxG=0,minB=255,maxB=0;
-for(let i=0;i<len;i+=4){if(d[i]<minR)minR=d[i];if(d[i]>maxR)maxR=d[i];if(d[i+1]<minG)minG=d[i+1];if(d[i+1]>maxG)maxG=d[i+1];if(d[i+2]<minB)minB=d[i+2];if(d[i+2]>maxB)maxB=d[i+2];}
-for(let i=0;i<len;i+=4){
-if(mode===‘color’){d[i]=clamp(((d[i]-minR)/(maxR-minR||1))*255*1.05);d[i+1]=clamp(((d[i+1]-minG)/(maxG-minG||1))*255);d[i+2]=clamp(((d[i+2]-minB)/(maxB-minB||1))*255*0.97);d[i]=sCurve(d[i]);d[i+1]=sCurve(d[i+1]);d[i+2]=sCurve(d[i+2]);}
-else if(mode===‘gray’){const g=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];const minL=0.299*minR+0.587*minG+0.114*minB;const maxL=0.299*maxR+0.587*maxG+0.114*maxB;d[i]=d[i+1]=d[i+2]=sCurve(clamp(((g-minL)/(maxL-minL||1))*255));}
-else{const g=0.299*d[i]+0.587*d[i+1]+0.114*d[i+2];const minL=0.299*minR+0.587*minG+0.114*minB;const maxL=0.299*maxR+0.587*maxG+0.114*maxB;const s=((g-minL)/(maxL-minL||1))*255;d[i]=d[i+1]=d[i+2]=s>145?255:s<100?0:s>130?220:40;}
-}
-ctx.putImageData(imgData,0,0);
-sharpenCanvas(preview,ctx,mode===‘bw’?1.8:0.8);
-capturedImageData={canvas:srcCanvas,mode,enhanced:preview.toDataURL(‘image/jpeg’,0.93)};
-}
-function sCurve(v){const n=v/255;const out=n<0.5?2*n*n:1-2*(1-n)*(1-n);return clamp(Math.round((out*0.6+n*0.4)*255));}
-function clamp(v){return Math.max(0,Math.min(255,Math.round(v)))}
-function sharpenCanvas(canvas,ctx,strength=1){
-const d=ctx.getImageData(0,0,canvas.width,canvas.height);const src=new Uint8ClampedArray(d.data);const w=canvas.width,h=canvas.height;const s=strength;const k=[0,-s,0,-s,1+4*s,-s,0,-s,0];
-for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){const idx=(y*w+x)*4;for(let c=0;c<3;c++){let v=0;for(let ky=-1;ky<=1;ky++)for(let kx=-1;kx<=1;kx++)v+=src[((y+ky)*w+(x+kx))*4+c]*k[(ky+1)*3+(kx+1)];d.data[idx+c]=clamp(v);}}
-ctx.putImageData(d,0,0);
-}
-
-async function confirmScan(){
-if(!capturedImageData)return;
-const dataUrl=capturedImageData.enhanced||document.getElementById(‘crop-canvas’).toDataURL(‘image/jpeg’,0.93);
-document.getElementById(‘crop-overlay’).style.display=‘none’;
-stopStream();
-pendingDoc={dataUrl,mime:‘image/jpeg’,name:‘scan-’+Date.now()+’.jpg’};
-await extractAI(dataUrl,‘image/jpeg’);
-}
-function retakeScan(){
-document.getElementById(‘crop-overlay’).style.display=‘none’;
-document.getElementById(‘scanner-overlay’).style.display=‘flex’;
-startEdgeDetection();
+  const t=document.createElement('div');t.className='toast'+(err?' err':'');t.textContent=msg;
+  document.getElementById('toasts').appendChild(t);
+  setTimeout(()=>{t.style.opacity='0';t.style.transition='opacity 0.3s';setTimeout(()=>t.remove(),300)},3000);
 }
 
 // ── PWA Manifest ──────────────────────────────────────────────────────────────
-const mf={name:“CNS Invoice Ledger”,short_name:“CNS”,start_url:”.”,display:“standalone”,background_color:”#ffffff”,theme_color:”#ffffff”,icons:[{src:“data:image/svg+xml,”+encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect width='192' height='192' rx='40' fill='white'/><rect x='8' y='8' width='68' height='68' rx='14' fill='%238dc63f'/><rect x='34' y='34' width='60' height='60' rx='13' fill='%23008751'/><rect x='34' y='54' width='70' height='70' rx='14' fill='%2300adef'/><rect x='58' y='8' width='38' height='38' rx='10' fill='%23ed1c24'/><text x='106' y='152' font-family='Arial Black,Helvetica,sans-serif' font-weight='900' font-size='72' fill='%23231f20' text-anchor='middle' letter-spacing='-2'>CNS</text></svg>`),sizes:“192x192”,type:“image/svg+xml”}]};
-const mb=new Blob([JSON.stringify(mf)],{type:‘application/json’});
-const ml=document.createElement(‘link’);ml.rel=‘manifest’;ml.href=URL.createObjectURL(mb);
+const mf={name:"Invoice Ledger",short_name:"Invoices",start_url:".",display:"standalone",background_color:"#faf7f2",theme_color:"#12100e",icons:[{src:"data:image/svg+xml,"+encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect width='192' height='192' rx='38' fill='%2312100e'/><rect x='42' y='34' width='108' height='134' rx='7' fill='%23f5f0e8'/><rect x='55' y='54' width='82' height='9' rx='3' fill='%23d9d2c5'/><rect x='55' y='71' width='62' height='9' rx='3' fill='%23d9d2c5'/><rect x='55' y='88' width='72' height='9' rx='3' fill='%23d9d2c5'/><rect x='55' y='112' width='82' height='4' rx='2' fill='%23b5341c'/><rect x='55' y='122' width='48' height='10' rx='3' fill='%231e6b4a'/></svg>`),sizes:"192x192",type:"image/svg+xml"}]};
+const mb=new Blob([JSON.stringify(mf)],{type:'application/json'});
+const ml=document.createElement('link');ml.rel='manifest';ml.href=URL.createObjectURL(mb);
 document.head.appendChild(ml);
 </script>
-
 </body>
 </html>
