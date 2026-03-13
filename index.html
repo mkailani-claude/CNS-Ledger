@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="CNS Ledger">
+<meta name="apple-mobile-web-app-title" content="CNS Reimbursement">
 <meta name="theme-color" content="#f5f0e8">
-<title>CNS Invoice Ledger</title>
+<title>CNS Reimbursement</title>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=Nunito:wght@300;400;500;600;700&family=Fira+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
@@ -70,11 +70,7 @@ body{font-family:'Nunito',sans-serif;color:var(--ink);font-size:14px;line-height
 ::-webkit-scrollbar-thumb{background:var(--parchment);border-radius:3px}
 
 /* ══ TEXTURE OVERLAY ══ */
-body::before{
-  content:'';position:fixed;inset:0;
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)' opacity='0.025'/%3E%3C/svg%3E");
-  pointer-events:none;z-index:0;opacity:0.4;
-}
+/* texture via real element - safer on iOS than pseudo-element */
 
 /* ══════════════════════════════════════════════
    ICONS (inline SVG via CSS mask)
@@ -121,7 +117,7 @@ body::before{
   background:radial-gradient(circle,rgba(184,92,56,0.07) 0%,transparent 70%);
   top:-100px;right:-100px;pointer-events:none;
 }
-.login-wrap{width:100%;max-width:380px;position:relative;z-index:1}
+.login-wrap{width:100%;max-width:380px;position:relative;z-index:2}
 .login-brand{display:flex;align-items:center;gap:0.75rem;margin-bottom:2.5rem;justify-content:center}
 .login-brand-icon{
   width:52px;height:52px;border-radius:16px;
@@ -150,7 +146,7 @@ body::before{
 .login-inp-wrap input:focus{outline:none;border-color:var(--clay);box-shadow:0 0 0 3px rgba(184,92,56,0.12)}
 .login-inp-wrap input.err{border-color:var(--rose);animation:shake 0.35s ease}
 @keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
-.login-eye{position:absolute;right:0.85rem;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--ink3);padding:0.2rem;line-height:0}
+.login-eye{position:absolute;right:0;top:0;bottom:0;width:3rem;display:flex;align-items:center;justify-content:center;background:none;border:none;cursor:pointer;color:var(--ink3);-webkit-tap-highlight-color:transparent;z-index:2;touch-action:manipulation}
 .login-btn{
   width:100%;padding:0.9rem;
   background:var(--clay);color:#fff;
@@ -158,6 +154,8 @@ body::before{
   font-family:'Nunito',sans-serif;font-size:0.95rem;font-weight:700;
   cursor:pointer;transition:all 0.15s;letter-spacing:0.01em;
   box-shadow:0 4px 14px rgba(184,92,56,0.3);
+  touch-action:manipulation;-webkit-tap-highlight-color:transparent;
+  position:relative;z-index:2;
 }
 .login-btn:hover{background:var(--clay2);box-shadow:0 6px 18px rgba(184,92,56,0.35)}
 .login-btn:active{transform:scale(0.99);opacity:0.9}
@@ -681,8 +679,7 @@ input[readonly]{color:var(--ink3);cursor:default}
     <div class="login-brand">
       <div class="login-brand-icon"><span class="ico ico-lg ico-ledger"></span></div>
       <div>
-        <div class="login-brand-name">CNS Ledger</div>
-        <div class="login-brand-sub">Private · Luxembourg</div>
+        <div class="login-brand-name">CNS Reimbursement</div>
       </div>
     </div>
     <div class="login-card">
@@ -708,8 +705,7 @@ input[readonly]{color:var(--ink3);cursor:default}
       <div class="sidebar-logo">
         <div class="sidebar-logo-icon"><span class="ico ico-sm ico-ledger"></span></div>
         <div>
-          <div class="sidebar-logo-name">CNS Ledger</div>
-          <div class="sidebar-logo-sub">Luxembourg</div>
+          <div class="sidebar-logo-name">CNS Reimbursement</div>
         </div>
       </div>
       <div class="sidebar-section">
@@ -745,7 +741,7 @@ input[readonly]{color:var(--ink3);cursor:default}
       <div class="mobile-header">
         <div class="mobile-logo">
           <div class="mobile-logo-dot"></div>
-          CNS Ledger
+          CNS Reimbursement
         </div>
         <div style="display:flex;gap:0.4rem">
           <button class="btn btn-ghost btn-sm btn-icon" onclick="showSettings()"><span class="ico ico-sm ico-settings" style="color:var(--ink2)"></span></button>
@@ -1652,7 +1648,7 @@ async function confirmScan(){
 function retakeScan(){document.getElementById('review-wrap').classList.remove('on');setStatus('Position document, then tap shutter')}
 
 // ══ PWA ═══════════════════════════════════════════════════════════════
-const mf={name:'CNS Ledger',short_name:'CNS',start_url:'.',display:'standalone',background_color:'#f7f3ec',theme_color:'#f5f0e8',icons:[{src:'data:image/svg+xml,'+encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect width='192' height='192' rx='38' fill='%23f7f3ec'/><rect x='42' y='30' width='108' height='136' rx='8' fill='%23fdfaf5' stroke='%23d9cdb8' stroke-width='2'/><rect x='42' y='30' width='108' height='38' rx='8' fill='%23b85c38'/><rect x='42' y='54' width='108' height='14' fill='%23b85c38'/><rect x='58' y='90' width='76' height='7' rx='3' fill='%23d9cdb8'/><rect x='58' y='106' width='56' height='7' rx='3' fill='%23d9cdb8'/><rect x='58' y='122' width='66' height='7' rx='3' fill='%23d9cdb8'/><rect x='58' y='143' width='76' height='5' rx='2' fill='%234a7c59' opacity='.7'/></svg>`),sizes:'192x192',type:'image/svg+xml'}]};
+const mf={name:'CNS Reimbursement',short_name:'CNS',start_url:'.',display:'standalone',background_color:'#f7f3ec',theme_color:'#f5f0e8',icons:[{src:'data:image/svg+xml,'+encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect width='192' height='192' rx='38' fill='%23f7f3ec'/><rect x='42' y='30' width='108' height='136' rx='8' fill='%23fdfaf5' stroke='%23d9cdb8' stroke-width='2'/><rect x='42' y='30' width='108' height='38' rx='8' fill='%23b85c38'/><rect x='42' y='54' width='108' height='14' fill='%23b85c38'/><rect x='58' y='90' width='76' height='7' rx='3' fill='%23d9cdb8'/><rect x='58' y='106' width='56' height='7' rx='3' fill='%23d9cdb8'/><rect x='58' y='122' width='66' height='7' rx='3' fill='%23d9cdb8'/><rect x='58' y='143' width='76' height='5' rx='2' fill='%234a7c59' opacity='.7'/></svg>`),sizes:'192x192',type:'image/svg+xml'}]};
 const mb=new Blob([JSON.stringify(mf)],{type:'application/json'});
 const ml=document.createElement('link');ml.rel='manifest';ml.href=URL.createObjectURL(mb);document.head.appendChild(ml);
 </script>
