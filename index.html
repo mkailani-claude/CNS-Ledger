@@ -75,7 +75,7 @@ body{font-family:'Nunito',sans-serif;color:var(--ink);font-size:14px;line-height
 /* ══════════════════════════════════════════════
    ICONS (inline SVG via CSS mask)
 ══════════════════════════════════════════════ */
-.ico{display:inline-block;flex-shrink:0;background-color:currentColor;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-size:contain;mask-size:contain;-webkit-mask-position:center;mask-position:center}
+.ico{display:inline-block;flex-shrink:0;background-color:currentColor;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-size:contain;mask-size:contain;-webkit-mask-position:center;mask-position:center;pointer-events:none}
 .ico-sm{width:16px;height:16px}
 .ico-md{width:20px;height:20px}
 .ico-lg{width:24px;height:24px}
@@ -111,12 +111,7 @@ body{font-family:'Nunito',sans-serif;color:var(--ink);font-size:14px;line-height
   display:flex;align-items:center;justify-content:center;
   padding:calc(var(--st)+2rem) 1.5rem calc(var(--sb)+2rem);
 }
-/* Decorative blobs */
-#login-screen::after{
-  content:'';position:absolute;width:400px;height:400px;border-radius:50%;
-  background:radial-gradient(circle,rgba(184,92,56,0.07) 0%,transparent 70%);
-  top:-100px;right:-100px;pointer-events:none;
-}
+/* no pseudo-elements on login — iOS Safari blocks taps through them */
 .login-wrap{width:100%;max-width:380px;position:relative;z-index:2}
 .login-brand{display:flex;align-items:center;gap:0.75rem;margin-bottom:2.5rem;justify-content:center}
 .login-brand-icon{
@@ -146,7 +141,7 @@ body{font-family:'Nunito',sans-serif;color:var(--ink);font-size:14px;line-height
 .login-inp-wrap input:focus{outline:none;border-color:var(--clay);box-shadow:0 0 0 3px rgba(184,92,56,0.12)}
 .login-inp-wrap input.err{border-color:var(--rose);animation:shake 0.35s ease}
 @keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
-.login-eye{position:absolute;right:0;top:0;bottom:0;width:3rem;display:flex;align-items:center;justify-content:center;background:none;border:none;cursor:pointer;color:var(--ink3);-webkit-tap-highlight-color:transparent;z-index:2;touch-action:manipulation}
+.login-eye{position:absolute;right:0;top:0;bottom:0;width:3rem;display:flex;align-items:center;justify-content:center;background:none;border:none;cursor:pointer;color:var(--ink3);-webkit-tap-highlight-color:transparent;z-index:10;touch-action:manipulation;font-size:1rem;line-height:1}
 .login-btn{
   width:100%;padding:0.9rem;
   background:var(--clay);color:#fff;
@@ -686,11 +681,10 @@ input[readonly]{color:var(--ink3);cursor:default}
       <span class="login-label">Password</span>
       <div class="login-inp-wrap">
         <input type="password" id="pw-input" placeholder="Enter password"
-          onkeydown="if(event.key==='Enter')tryLogin()"
-          oninput="document.getElementById('login-err').textContent=''">
-        <button class="login-eye" onclick="toggleEye()"><span class="ico ico-sm ico-eye" style="color:var(--ink3)"></span></button>
+          autocomplete="current-password">
+        <button class="login-eye" id="eye-toggle" type="button">👁</button>
       </div>
-      <button class="login-btn" onclick="tryLogin()">Unlock</button>
+      <button class="login-btn" id="unlock-btn" type="button">Unlock</button>
       <div class="login-err" id="login-err"></div>
     </div>
   </div>
@@ -1093,6 +1087,18 @@ input[readonly]{color:var(--ink3);cursor:default}
 <div id="toasts"></div>
 
 <script>
+// ══ LOGIN EVENT LISTENERS (attached after DOM ready — reliable on iOS) ══
+document.addEventListener('DOMContentLoaded', function() {
+  document.getElementById('unlock-btn').addEventListener('click', tryLogin);
+  document.getElementById('eye-toggle').addEventListener('click', toggleEye);
+  document.getElementById('pw-input').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') tryLogin();
+  });
+  document.getElementById('pw-input').addEventListener('input', function() {
+    document.getElementById('login-err').textContent = '';
+  });
+});
+
 // ══ PEOPLE ══════════════════════════════════════════════════════════
 const PEOPLE={
   mohd:{name:'Mohd',matricule:'1989 03 05 026 06',mat_raw:'1989030502606',names:['ZEID ALKAILANI','MOH\'D N.J. ZEID ALKAILANI','MOHD N J','ALKAILANI MOHD']},
