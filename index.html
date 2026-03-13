@@ -180,19 +180,19 @@ body{font-family:'Inter',sans-serif;color:var(--text);font-size:14px}
 .bnav-btn.active{color:var(--accent2)}
 
 /* ═══ STATS ═══ */
-.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1.5rem}
-.stat-card{background:var(--bg2);border:1px solid var(--border);border-radius:14px;padding:1rem 1.1rem}
-.stat-label{font-family:'JetBrains Mono',monospace;font-size:0.58rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--text3);display:block;margin-bottom:0.4rem}
-.stat-val{font-family:'Plus Jakarta Sans',sans-serif;font-size:1.6rem;font-weight:300;display:block;letter-spacing:-0.02em}
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:0.6rem;margin-bottom:1rem}
+.stat-card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:0.75rem 0.85rem}
+.stat-label{font-family:'JetBrains Mono',monospace;font-size:0.55rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--text3);display:block;margin-bottom:0.3rem}
+.stat-val{font-family:'Plus Jakarta Sans',sans-serif;font-size:1.35rem;font-weight:300;display:block;letter-spacing:-0.02em}
 .stat-val.green{color:var(--green)}
 .stat-val.accent{color:var(--accent2)}
-.stat-sub{font-family:'JetBrains Mono',monospace;font-size:0.65rem;color:var(--text3);margin-top:0.2rem;display:block}
+.stat-sub{font-family:'JetBrains Mono',monospace;font-size:0.6rem;color:var(--text3);margin-top:0.15rem;display:block}
 
 /* ═══ FILTER BAR ═══ */
 .filter-bar{
-  background:var(--bg2);border:1px solid var(--border);border-radius:14px;
-  padding:0.85rem 1rem;margin-bottom:1.25rem;
-  display:flex;align-items:center;gap:0.75rem;flex-wrap:wrap;
+  background:var(--bg2);border:1px solid var(--border);border-radius:12px;
+  padding:0.65rem 0.85rem;margin-bottom:0.85rem;
+  display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap;
 }
 .filter-group{display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap}
 .filter-label{font-family:'JetBrains Mono',monospace;font-size:0.6rem;text-transform:uppercase;letter-spacing:0.1em;color:var(--text3);white-space:nowrap}
@@ -338,26 +338,40 @@ td.right{text-align:right}
 }
 .sheet{
   background:var(--bg2);border-radius:20px 20px 0 0;
-  width:100%;max-width:640px;max-height:92vh;
-  overflow-y:auto;animation:slideUp 0.25s ease;
-  padding-bottom:calc(var(--sb)+1rem);
+  width:100%;max-width:640px;
+  /* Never taller than viewport minus safe area top + a gap */
+  max-height:calc(100vh - var(--st) - 1rem);
+  display:flex;flex-direction:column;
+  animation:slideUp 0.25s ease;
 }
-@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
 .sheet-hdr{
   padding:1rem 1.1rem;border-bottom:1px solid var(--border);
   display:flex;align-items:center;justify-content:space-between;
   background:var(--bg3);border-radius:20px 20px 0 0;
-  position:sticky;top:0;z-index:10;
+  flex-shrink:0;
 }
 @media(min-width:640px){.sheet-hdr{border-radius:18px 18px 0 0}}
-.sheet-title{font-family:'Plus Jakarta Sans',sans-serif;font-size:1rem;font-weight:400;letter-spacing:-0.01em}
-.sheet-close{background:none;border:none;color:var(--text3);cursor:pointer;font-size:1rem;padding:0.25rem 0.4rem;border-radius:6px;line-height:1}
-.sheet-close:hover{color:var(--text);background:var(--bg4)}
-.sheet-body{padding:1.1rem}
+/* Scrollable body — takes remaining height */
+.sheet-body{
+  padding:1.1rem;
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+  flex:1;
+  padding-bottom:calc(var(--sb) + 1.5rem);
+}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.sheet-title{font-family:'Plus Jakarta Sans',sans-serif;font-size:1rem;font-weight:600;letter-spacing:-0.01em}
+.sheet-close{
+  background:var(--bg4);border:none;color:var(--text);cursor:pointer;
+  padding:0.35rem 0.9rem;border-radius:8px;
+  font-family:'Plus Jakarta Sans',sans-serif;font-size:0.82rem;font-weight:600;
+  line-height:1.4;letter-spacing:0.01em;
+}
+.sheet-close:active{opacity:0.7}
 .sheet-foot{
   padding:0.85rem 1.1rem;border-top:1px solid var(--border);
   display:flex;justify-content:flex-end;gap:0.5rem;background:var(--bg3);
-  position:sticky;bottom:0;
+  position:sticky;bottom:0;flex-shrink:0;
 }
 
 /* ═══ FORM ═══ */
@@ -513,7 +527,7 @@ textarea{resize:vertical;min-height:60px}
   .sidebar{display:none}
   .mobile-header{display:flex}
   .bottom-nav{display:block}
-  .page-content{padding:1rem 1rem calc(var(--sb)+5rem)}
+  .page-content{padding:0.75rem 0.75rem calc(var(--sb)+5rem)}
   .stats-grid{grid-template-columns:1fr 1fr}
   .fgrid{grid-template-columns:1fr}
   .field.full{grid-column:1}
@@ -860,7 +874,7 @@ textarea{resize:vertical;min-height:60px}
   <div class="sheet">
     <div class="sheet-hdr">
       <span class="sheet-title">Settings</span>
-      <button class="sheet-close" onclick="closeModal('settings-overlay')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" width="14" height="14"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+      <button class="sheet-close" onclick="closeModal('settings-overlay')">Done</button>
     </div>
     <div class="sheet-body">
       <!-- API Key -->
